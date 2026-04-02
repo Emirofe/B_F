@@ -48,8 +48,8 @@ export function CheckoutPage() {
   const handleConfirmOrder = () => {
     const addr = addresses.find((a) => a.id === selectedAddress);
     const addressStr = addr
-      ? `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}`
-      : "Av. Reforma 123, CDMX";
+      ? `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}, ${addr.country}`
+      : "Av. Reforma 123, CDMX, Mexico";
     const order = placeOrder(addressStr);
     setCompletedOrder(order);
     setStep("success");
@@ -135,7 +135,7 @@ export function CheckoutPage() {
                         <div>
                           <p style={{ fontSize: 14, fontWeight: 500 }}>{addr.label}</p>
                           <p className="text-muted-foreground" style={{ fontSize: 14 }}>
-                            {addr.street}, {addr.city}, {addr.state} {addr.zip}
+                            {addr.street}, {addr.city}, {addr.state} {addr.zip}, {addr.country}
                           </p>
                         </div>
                       </label>

@@ -98,7 +98,6 @@ export function SellerServicesPage() {
         stock: 99,
         sellerId: "s1",
         sellerName: "FiestaMax",
-        sellerRating: 4.7,
         reviews: [],
         type: "servicio",
         availability: formData.availability,

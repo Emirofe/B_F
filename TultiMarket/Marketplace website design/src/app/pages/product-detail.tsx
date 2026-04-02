@@ -163,9 +163,6 @@ export function ProductDetailPage() {
                   <Store size={14} className="inline mr-1" />
                   {product.sellerName}
                 </Link>
-                <span className="text-muted-foreground" style={{ fontSize: 13 }}>
-                  ({product.sellerRating} estrellas)
-                </span>
               </div>
 
               <h1 className="mb-3" style={{ fontSize: 24, fontWeight: 600 }}>{product.name}</h1>
@@ -414,9 +411,8 @@ export function ProductDetailPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: 18, fontWeight: 600 }}>{product.sellerName}</h3>
-                  <StarRating rating={product.sellerRating} size={16} showCount count={product.reviewCount} />
-                  <p className="text-muted-foreground mt-2" style={{ fontSize: 14 }}>
-                    Vendedor verificado en TultiMarket. Especialista en articulos para fiestas y eventos.
+                  <p className="text-muted-foreground mt-1" style={{ fontSize: 13 }}>
+                    Perfil de Negocio
                   </p>
                 </div>
               </div>

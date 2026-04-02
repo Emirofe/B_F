@@ -79,7 +79,6 @@ export function SellerProductsPage() {
         reviewCount: 0,
         sellerId: "s1",
         sellerName: "FiestaMax",
-        sellerRating: 4.7,
         reviews: [],
         active: true,
       };

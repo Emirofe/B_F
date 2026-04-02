@@ -14,7 +14,7 @@ export function ProfilePage() {
   const [email, setEmail] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
   const [showAddAddress, setShowAddAddress] = useState(false);
-  const [newAddr, setNewAddr] = useState({ label: "", street: "", city: "", state: "", zip: "" });
+  const [newAddr, setNewAddr] = useState({ label: "", street: "", city: "", state: "", zip: "", country: "" });
   
   // New States for Tabs and Security
   const [activeTab, setActiveTab] = useState<"info" | "addresses" | "payments" | "security">("info");
@@ -44,7 +44,7 @@ export function ProfilePage() {
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
     addAddress({ ...newAddr, isDefault: false });
-    setNewAddr({ label: "", street: "", city: "", state: "", zip: "" });
+    setNewAddr({ label: "", street: "", city: "", state: "", zip: "", country: "" });
     setShowAddAddress(false);
     toast.success("Direccion agregada");
   };
@@ -237,6 +237,13 @@ export function ProfilePage() {
                     className="px-3 py-2 rounded-lg border border-border bg-white" style={{ fontSize: 14 }}
                     required
                   />
+                  <input
+                    placeholder="País"
+                    value={newAddr.country}
+                    onChange={(e) => setNewAddr({ ...newAddr, country: e.target.value })}
+                    className="px-3 py-2 rounded-lg border border-border bg-white" style={{ fontSize: 14 }}
+                    required
+                  />
                   <div className="flex gap-2">
                     <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg" style={{ fontSize: 14 }}>Guardar</button>
                     <button type="button" onClick={() => setShowAddAddress(false)} className="px-4 py-2 border border-border rounded-lg" style={{ fontSize: 14 }}>Cancelar</button>
@@ -258,7 +265,7 @@ export function ProfilePage() {
                           )}
                         </div>
                         <p className="text-muted-foreground mt-1" style={{ fontSize: 14 }}>
-                          {addr.street}, {addr.city}, {addr.state} {addr.zip}
+                          {addr.street}, {addr.city}, {addr.state} {addr.zip}, {addr.country}
                         </p>
                       </div>
                       <button

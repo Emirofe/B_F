@@ -8,7 +8,7 @@ interface StoreState {
   orders: Order[];
   addresses: Address[];
   isLoggedIn: boolean;
-  login: (email: string, password: string, role?: string) => boolean;
+  login: (email: string, password: string) => User | null;
   register: (name: string, email: string, password: string, role: string) => boolean;
   logout: () => void;
   addToCart: (product: Product, quantity?: number, selectedDate?: string, selectedTime?: string) => void;
@@ -34,24 +34,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [addresses, setAddresses] = useState<Address[]>(mockAddresses);
 
-  const login = useCallback((email: string, _password: string, role?: string) => {
-    const userRole = role || "comprador";
-    const existingUser = mockUsers.find((u) => u.email === email && u.role === userRole);
+  const login = useCallback((email: string, _password: string) => {
+    // Si el email coincide con algun mock, usamos ese rol. Si no, default a comprador.
+    const existingUser = mockUsers.find((u) => u.email === email);
     
     if (existingUser) {
       setCurrentUser(existingUser);
+      return existingUser;
     } else {
-      setCurrentUser({
+      const newUser: User = {
         id: "current-user",
         name: email.split("@")[0],
         email,
-        role: userRole as any,
+        role: "comprador",
         registrationDate: "2026-01-01",
         status: "Activo",
         phone: "55 1234 5678",
-      });
+      };
+      setCurrentUser(newUser);
+      return newUser;
     }
-    return true;
   }, []);
 
   const register = useCallback((name: string, email: string, _password: string, role: string) => {

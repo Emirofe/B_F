@@ -12,7 +12,6 @@ export interface Product {
   stock: number;
   sellerId: string;
   sellerName: string;
-  sellerRating: number;
   reviews: Review[];
   // Campos añadidos para BD Compliance
   type?: "producto" | "servicio";
@@ -90,6 +89,7 @@ export interface Address {
   city: string;
   state: string;
   zip: string;
+  country: string;
   isDefault: boolean;
 }
 
@@ -158,7 +158,6 @@ export const products: Product[] = [
     stock: 45,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [
       { id: "r1", userId: "u1", userName: "Maria G.", rating: 5, comment: "Excelente calidad, todo llego completo y a tiempo.", date: "2026-02-15" },
       { id: "r2", userId: "u2", userName: "Carlos R.", rating: 4, comment: "Muy bonitos los globos, el banner es de buena calidad.", date: "2026-02-10" },
@@ -181,7 +180,6 @@ export const products: Product[] = [
     stock: 120,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [
       { id: "r3", userId: "u3", userName: "Ana L.", rating: 4, comment: "Buenos globos, colores vibrantes.", date: "2026-01-28" },
     ],
@@ -204,7 +202,6 @@ export const products: Product[] = [
     stock: 18,
     sellerId: "s2",
     sellerName: "EventosPro",
-    sellerRating: 4.9,
     reviews: [
       { id: "r4", userId: "u4", userName: "Sofia M.", rating: 5, comment: "Hermoso, se ve como flores reales. Perfecto para mi boda.", date: "2026-02-20" },
     ],
@@ -224,7 +221,6 @@ export const products: Product[] = [
     stock: 32,
     sellerId: "s3",
     sellerName: "PinatasMX",
-    sellerRating: 4.5,
     reviews: [
       { id: "r5", userId: "u5", userName: "Pedro H.", rating: 5, comment: "Muy resistente y colorida. Los ninos la amaron.", date: "2026-02-18" },
     ],
@@ -244,7 +240,6 @@ export const products: Product[] = [
     stock: 85,
     sellerId: "s2",
     sellerName: "EventosPro",
-    sellerRating: 4.9,
     reviews: [],
   },
   {
@@ -262,7 +257,6 @@ export const products: Product[] = [
     stock: 60,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
   },
   {
@@ -281,7 +275,6 @@ export const products: Product[] = [
     stock: 12,
     sellerId: "s2",
     sellerName: "EventosPro",
-    sellerRating: 4.9,
     reviews: [],
   },
   {
@@ -299,7 +292,6 @@ export const products: Product[] = [
     stock: 28,
     sellerId: "s3",
     sellerName: "PinatasMX",
-    sellerRating: 4.5,
     reviews: [],
   },
   {
@@ -317,7 +309,6 @@ export const products: Product[] = [
     stock: 40,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
   },
   {
@@ -335,7 +326,6 @@ export const products: Product[] = [
     stock: 25,
     sellerId: "s2",
     sellerName: "EventosPro",
-    sellerRating: 4.9,
     reviews: [],
   },
   {
@@ -353,7 +343,6 @@ export const products: Product[] = [
     stock: 35,
     sellerId: "s3",
     sellerName: "PinatasMX",
-    sellerRating: 4.5,
     reviews: [],
   },
   {
@@ -371,7 +360,6 @@ export const products: Product[] = [
     stock: 55,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
     type: "producto",
     status: "Aprobado"
@@ -391,7 +379,6 @@ export const products: Product[] = [
     stock: 99, // Los servicios no tienen stock de piezas, la disponibilidad es por agenda
     sellerId: "s2",
     sellerName: "EventosPro",
-    sellerRating: 4.9,
     reviews: [],
     type: "servicio",
     durationMin: 120,
@@ -413,7 +400,6 @@ export const products: Product[] = [
     stock: 99,
     sellerId: "s4",
     sellerName: "MagicoMundo",
-    sellerRating: 4.8,
     reviews: [],
     type: "servicio",
     durationMin: 60,
@@ -436,7 +422,6 @@ export const products: Product[] = [
     stock: 99,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
     type: "servicio",
     durationMin: 240,
@@ -458,7 +443,6 @@ export const products: Product[] = [
     stock: 99,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
     type: "servicio",
     durationMin: 240,
@@ -480,7 +464,6 @@ export const products: Product[] = [
     stock: 99,
     sellerId: "s1",
     sellerName: "FiestaMax",
-    sellerRating: 4.7,
     reviews: [],
     type: "servicio",
     durationMin: 300,
@@ -560,8 +543,8 @@ export const mockBundles: Bundle[] = [
 ];
 
 export const mockAddresses: Address[] = [
-  { id: "a1", label: "Casa", street: "Av. Reforma 123", city: "Ciudad de Mexico", state: "CDMX", zip: "06600", isDefault: true },
-  { id: "a2", label: "Oficina", street: "Calle Palmas 456, Piso 3", city: "Ciudad de Mexico", state: "CDMX", zip: "11000", isDefault: false },
+  { id: "a1", label: "Casa", street: "Av. Reforma 123", city: "Ciudad de Mexico", state: "CDMX", zip: "06600", country: "Mexico", isDefault: true },
+  { id: "a2", label: "Oficina", street: "Calle Palmas 456, Piso 3", city: "Ciudad de Mexico", state: "CDMX", zip: "11000", country: "Mexico", isDefault: false },
 ];
 
 export const mockPaymentMethods: PaymentMethod[] = [

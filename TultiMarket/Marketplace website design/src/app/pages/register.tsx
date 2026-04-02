@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Store, Eye, EyeOff } from "lucide-react";
+import { Store, Eye, EyeOff, Info, ShieldCheck } from "lucide-react";
 import { useStore } from "../context/store-context";
 import { toast } from "sonner";
 
@@ -11,7 +11,7 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("comprador");
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Business Fields for Sellers
   const [businessName, setBusinessName] = useState("");
   const [rfc, setRfc] = useState("");
@@ -27,13 +27,23 @@ export function RegisterPage() {
     setErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
   };
 
-  const getPasswordStrength = (p: string): { label: string; color: string; width: string } => {
-    if (p.length === 0) return { label: "", color: "", width: "0%" };
-    if (p.length < 6) return { label: "Debil", color: "bg-red-500", width: "33%" };
-    if (p.length < 10) return { label: "Media", color: "bg-amber-500", width: "66%" };
-    return { label: "Fuerte", color: "bg-green-500", width: "100%" };
+  const getPasswordStrength = (p: string): { label: string; color: string; width: string; score: number } => {
+    if (p.length === 0) return { label: "", color: "", width: "0%", score: 0 };
+
+    let score = 0;
+    if (p.length >= 8) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[a-z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[^A-Za-z0-9]/.test(p)) score++;
+
+    if (score <= 2) return { label: "Debil", color: "bg-red-500", width: "33%", score };
+    if (score === 3) return { label: "Media", color: "bg-amber-500", width: "66%", score };
+    if (score === 4) return { label: "Fuerte", color: "bg-green-500", width: "100%", score };
+    return { label: "Excelente", color: "bg-emerald-600", width: "100%", score };
   };
   const strength = getPasswordStrength(password);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,13 +140,47 @@ export function RegisterPage() {
               </div>
               {errors.password && <p className="text-red-500 mt-1" style={{ fontSize: 12 }}>{errors.password}</p>}
               {password.length > 0 && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
                   <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                     <div className={`h-full ${strength.color} transition-all duration-300 rounded-full`} style={{ width: strength.width }} />
                   </div>
-                  <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Seguridad: {strength.label}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-muted-foreground" style={{ fontSize: 11 }}>
+                      Seguridad: <span className={`font-bold ${strength.color.replace('bg-', 'text-')}`}>{strength.label}</span>
+                    </p>
+                  </div>
+
+                  <div className={`mt-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-300 ${strength.score === 5
+                      ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                      : "bg-gray-50 border-gray-200/50 text-gray-500"
+                    }`}>
+                    <div className="flex-shrink-0">
+                      {strength.score === 5 ? <ShieldCheck size={14} className="text-emerald-600" /> : <Info size={14} className="text-gray-400" />}
+                    </div>
+                    <p className="font-medium" style={{ fontSize: 10.5 }}>
+                      {strength.score === 5 ? "Contraseña segura" : "Recomendación: Usa todos los criterios para mayor seguridad."}
+                    </p>
+                  </div>
+
+
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pt-1">
+
+                    {[
+                      { met: password.length >= 8, text: "8+ caracteres" },
+                      { met: /[A-Z]/.test(password), text: "Mayúscula" },
+                      { met: /[a-z]/.test(password), text: "Minúscula" },
+                      { met: /[0-9]/.test(password), text: "Número" },
+                      { met: /[^A-Za-z0-9]/.test(password), text: "Símbolo (!@#)" },
+                    ].map((req, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <div className={`w-1 h-1 rounded-full ${req.met ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={`${req.met ? 'text-gray-700' : 'text-gray-400'}`} style={{ fontSize: 10 }}>{req.text}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
             </div>
             <div>
               <label className="block mb-1.5" style={{ fontSize: 14 }}>Confirmar contrasena</label>
@@ -157,9 +201,8 @@ export function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setRole("comprador")}
-                  className={`flex-1 py-2.5 transition-colors ${
-                    role === "comprador" ? "bg-primary text-white" : "bg-white text-muted-foreground hover:bg-gray-50"
-                  }`}
+                  className={`flex-1 py-2.5 transition-colors ${role === "comprador" ? "bg-primary text-white" : "bg-white text-muted-foreground hover:bg-gray-50"
+                    }`}
                   style={{ fontSize: 14 }}
                 >
                   Comprador
@@ -167,9 +210,8 @@ export function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setRole("vendedor")}
-                  className={`flex-1 py-2.5 transition-colors ${
-                    role === "vendedor" ? "bg-primary text-white" : "bg-white text-muted-foreground hover:bg-gray-50"
-                  }`}
+                  className={`flex-1 py-2.5 transition-colors ${role === "vendedor" ? "bg-primary text-white" : "bg-white text-muted-foreground hover:bg-gray-50"
+                    }`}
                   style={{ fontSize: 14 }}
                 >
                   Vendedor

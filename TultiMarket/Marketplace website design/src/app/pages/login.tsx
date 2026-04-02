@@ -8,10 +8,9 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState("comprador");
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
-  const { login } = useStore();
+  const { login, currentUser } = useStore();
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -20,19 +19,16 @@ export function LoginPage() {
       toast.error("Por favor completa todos los campos");
       return;
     }
-    login(email, password, role);
+    const loggedInUser = login(email, password);
+    if (!loggedInUser) {
+      toast.error("Credenciales invalidas");
+      return;
+    }
+    
     toast.success("Sesion iniciada correctamente");
-    if (role === "vendedor") navigate("/vendedor/productos");
-    else if (role === "admin") navigate("/admin/usuarios");
+    if (loggedInUser.role === "vendedor") navigate("/vendedor/productos");
+    else if (loggedInUser.role === "admin") navigate("/admin/usuarios");
     else navigate("/");
-  };
-
-  const handleRoleChange = (newRole: string) => {
-    setRole(newRole);
-    // Auto-fill emails for testing based on mock-data.ts
-    if (newRole === "admin") setEmail("admin@marketplace.com");
-    else if (newRole === "vendedor") setEmail("fiestamax@correo.com");
-    else setEmail("maria@correo.com");
   };
 
   return (
@@ -48,33 +44,6 @@ export function LoginPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-border p-8">
           <h1 className="text-center mb-6" style={{ fontSize: 24, fontWeight: 600 }}>Iniciar Sesion</h1>
 
-          {/* Role selector for demo */}
-          <div className="mb-6">
-            <label className="block mb-2 text-muted-foreground" style={{ fontSize: 13 }}>
-              Tipo de cuenta (demo)
-            </label>
-            <div className="flex rounded-lg overflow-hidden border border-border">
-              {[
-                { value: "comprador", label: "Comprador" },
-                { value: "vendedor", label: "Vendedor" },
-                { value: "admin", label: "Admin" },
-              ].map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => handleRoleChange(r.value)}
-                  className={`flex-1 py-2.5 transition-colors ${
-                    role === r.value
-                      ? "bg-primary text-white"
-                      : "bg-white text-muted-foreground hover:bg-gray-50"
-                  }`}
-                  style={{ fontSize: 14 }}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
