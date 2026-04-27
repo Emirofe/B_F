@@ -3,26 +3,6 @@ const express = require("express");
 function createAdminRouter({ pool }) {
   const router = express.Router();
 
-  // Calcula precio final solo para descuentos automaticos vigentes.
-  function calcularPrecioConDescuento(precioBase, row) {
-    const precio = Number(precioBase);
-    const porcentaje = Number(row.porcentaje_descuento || 0);
-    const tieneDescuentoAutomatico = row.id_descuento !== null && row.codigo_cupon === null;
-    const fechaInicio = row.fecha_inicio ? new Date(row.fecha_inicio).getTime() : null;
-    const fechaFin = row.fecha_fin ? new Date(row.fecha_fin).getTime() : null;
-    const ahora = Date.now();
-    const descuentoVigente =
-      tieneDescuentoAutomatico &&
-      Number.isFinite(fechaInicio) &&
-      Number.isFinite(fechaFin) &&
-      fechaInicio <= ahora &&
-      ahora <= fechaFin;
-
-    if (!descuentoVigente) return precio;
-    return Number((precio * (1 - porcentaje / 100)).toFixed(2));
-  }
-
-  // Valida sesion y rol admin desde la informacion almacenada en session.
   function requireAdminSession(req, res) {
     const usuarioId = Number(req.session?.usuario_id || 0);
     const rol = String(req.session?.rol || "").toLowerCase();
@@ -40,20 +20,17 @@ function createAdminRouter({ pool }) {
     return usuarioId;
   }
 
-  // Refuerza la sesion con validacion en BD (usuario activo y rol admin real).
   async function requireActiveAdminSession(req, res) {
     const usuarioId = requireAdminSession(req, res);
     if (!usuarioId) return null;
 
     try {
       const activo = await pool.query(
-        `SELECT u.id
-         FROM usuarios u
-         INNER JOIN roles r ON r.id = u.id_rol
-         WHERE u.id = $1
+        `SELECT id
+         FROM usuarios
+         WHERE id = $1
            AND activo = TRUE
            AND fecha_eliminacion IS NULL
-           AND LOWER(r.nombre_rol) = 'admin'
          LIMIT 1`,
         [usuarioId]
       );
@@ -71,7 +48,6 @@ function createAdminRouter({ pool }) {
     }
   }
 
-  // Lista el catalogo completo de productos para moderacion admin.
   router.get("/admin/catalogo/productos", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -83,18 +59,12 @@ function createAdminRouter({ pool }) {
            p.nombre,
            p.descripcion,
            p.precio,
-           p.id_descuento,
            p.stock_total,
            p.esta_activo,
            p.fecha_registro,
-           d.codigo_cupon,
-           d.porcentaje_descuento,
-           d.fecha_inicio,
-           d.fecha_fin,
            COALESCE(n.nombre_comercial, '') AS negocio
          FROM productos p
          LEFT JOIN negocios n ON n.id = p.id_negocio
-         LEFT JOIN descuentos d ON d.id = p.id_descuento
          ORDER BY p.fecha_registro DESC, p.id DESC`
       );
 
@@ -106,8 +76,6 @@ function createAdminRouter({ pool }) {
           nombre: row.nombre,
           descripcion: row.descripcion,
           precio: Number(row.precio),
-          precio_con_descuento: calcularPrecioConDescuento(row.precio, row),
-          id_descuento: row.id_descuento,
           stock_total: Number(row.stock_total),
           esta_activo: row.esta_activo,
           estado_catalogo: row.esta_activo ? "Aprobado" : "Rechazado",
@@ -121,7 +89,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Lista el catalogo completo de servicios para moderacion admin.
   router.get("/admin/catalogo/servicios", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -133,17 +100,11 @@ function createAdminRouter({ pool }) {
            s.nombre,
            s.descripcion,
            s.precio_base,
-           s.id_descuento,
            s.esta_activo,
            s.fecha_registro,
-           d.codigo_cupon,
-           d.porcentaje_descuento,
-           d.fecha_inicio,
-           d.fecha_fin,
            COALESCE(n.nombre_comercial, '') AS negocio
          FROM servicios s
          LEFT JOIN negocios n ON n.id = s.id_negocio
-         LEFT JOIN descuentos d ON d.id = s.id_descuento
          ORDER BY s.fecha_registro DESC, s.id DESC`
       );
 
@@ -155,8 +116,6 @@ function createAdminRouter({ pool }) {
           nombre: row.nombre,
           descripcion: row.descripcion,
           precio_base: Number(row.precio_base),
-          precio_con_descuento: calcularPrecioConDescuento(row.precio_base, row),
-          id_descuento: row.id_descuento,
           esta_activo: row.esta_activo,
           estado_catalogo: row.esta_activo ? "Aprobado" : "Rechazado",
           fecha_registro: row.fecha_registro,
@@ -169,7 +128,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Cambia estado de aprobacion/rechazo de un producto.
   router.patch("/admin/catalogo/productos/:id/estado", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -215,7 +173,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Cambia estado de aprobacion/rechazo de un servicio.
   router.patch("/admin/catalogo/servicios/:id/estado", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -261,7 +218,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Lista usuarios con filtros opcionales por texto, rol y estado activo.
   router.get("/admin/usuarios", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -301,7 +257,6 @@ function createAdminRouter({ pool }) {
            u.nombre,
            u.email,
            u.telefono,
-            u.avatar_url,
            u.fecha_registro,
            u.activo,
            u.fecha_eliminacion,
@@ -322,7 +277,6 @@ function createAdminRouter({ pool }) {
           nombre: row.nombre,
           email: row.email,
           telefono: row.telefono,
-          avatar_url: row.avatar_url,
           id_rol: row.id_rol,
           rol: row.nombre_rol,
           activo: row.activo,
@@ -336,7 +290,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Activa o desactiva usuarios (evita desactivacion del propio admin logueado).
   router.patch("/admin/usuarios/:id/estado", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -383,7 +336,6 @@ function createAdminRouter({ pool }) {
     }
   });
 
-  // Reasigna el rol de un usuario validando que el rol destino exista.
   router.patch("/admin/usuarios/:id/rol", async (req, res) => {
     const adminId = await requireActiveAdminSession(req, res);
     if (!adminId) return;
@@ -429,6 +381,163 @@ function createAdminRouter({ pool }) {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ status: "error", mensaje: "Error al actualizar rol del usuario" });
+    }
+  });
+
+  // ── ENDPOINTS PARA CATEGORÍAS ──────────────────
+
+  router.get("/admin/categorias", async (req, res) => {
+    const adminId = await requireActiveAdminSession(req, res);
+    if (!adminId) return;
+
+    try {
+      const result = await pool.query(
+        `SELECT id, nombre_categoria, tipo
+         FROM categorias
+         ORDER BY tipo ASC, nombre_categoria ASC`
+      );
+
+      return res.status(200).json({
+        status: "success",
+        total: result.rows.length,
+        categorias: result.rows,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ status: "error", mensaje: "Error al obtener categorias" });
+    }
+  });
+
+  router.post("/admin/categorias", async (req, res) => {
+    const adminId = await requireActiveAdminSession(req, res);
+    if (!adminId) return;
+
+    try {
+      const { nombre_categoria, tipo } = req.body;
+
+      if (!nombre_categoria || String(nombre_categoria).trim() === "") {
+        return res.status(400).json({ status: "error", mensaje: "nombre_categoria es requerido" });
+      }
+
+      if (!tipo || !["producto", "servicio"].includes(String(tipo).toLowerCase())) {
+        return res.status(400).json({ status: "error", mensaje: "tipo debe ser 'producto' o 'servicio'" });
+      }
+
+      const nombre = String(nombre_categoria).trim();
+      const tipoLower = String(tipo).toLowerCase();
+
+      // Verificar si ya existe
+      const existe = await pool.query(
+        "SELECT id FROM categorias WHERE nombre_categoria = $1 AND tipo = $2 LIMIT 1",
+        [nombre, tipoLower]
+      );
+
+      if (existe.rows.length > 0) {
+        return res.status(409).json({ status: "error", mensaje: "Categoria ya existe" });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO categorias (nombre_categoria, tipo)
+         VALUES ($1, $2)
+         RETURNING id, nombre_categoria, tipo`,
+        [nombre, tipoLower]
+      );
+
+      return res.status(201).json({
+        status: "success",
+        mensaje: "Categoria creada exitosamente",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ status: "error", mensaje: "Error al crear categoria" });
+    }
+  });
+
+  router.put("/admin/categorias/:id", async (req, res) => {
+    const adminId = await requireActiveAdminSession(req, res);
+    if (!adminId) return;
+
+    try {
+      const id = Number(req.params.id);
+      const { nombre_categoria, tipo } = req.body;
+
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ status: "error", mensaje: "id invalido" });
+      }
+
+      if (!nombre_categoria || String(nombre_categoria).trim() === "") {
+        return res.status(400).json({ status: "error", mensaje: "nombre_categoria es requerido" });
+      }
+
+      if (!tipo || !["producto", "servicio"].includes(String(tipo).toLowerCase())) {
+        return res.status(400).json({ status: "error", mensaje: "tipo debe ser 'producto' o 'servicio'" });
+      }
+
+      const nombre = String(nombre_categoria).trim();
+      const tipoLower = String(tipo).toLowerCase();
+
+      // Verificar si ya existe otra con mismo nombre y tipo
+      const existe = await pool.query(
+        "SELECT id FROM categorias WHERE nombre_categoria = $1 AND tipo = $2 AND id != $3 LIMIT 1",
+        [nombre, tipoLower, id]
+      );
+
+      if (existe.rows.length > 0) {
+        return res.status(409).json({ status: "error", mensaje: "Otra categoria con ese nombre ya existe" });
+      }
+
+      const result = await pool.query(
+        `UPDATE categorias
+         SET nombre_categoria = $1, tipo = $2
+         WHERE id = $3
+         RETURNING id, nombre_categoria, tipo`,
+        [nombre, tipoLower, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ status: "error", mensaje: "Categoria no encontrada" });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        mensaje: "Categoria actualizada exitosamente",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ status: "error", mensaje: "Error al actualizar categoria" });
+    }
+  });
+
+  router.delete("/admin/categorias/:id", async (req, res) => {
+    const adminId = await requireActiveAdminSession(req, res);
+    if (!adminId) return;
+
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ status: "error", mensaje: "id invalido" });
+      }
+
+      const result = await pool.query(
+        "DELETE FROM categorias WHERE id = $1 RETURNING id, nombre_categoria, tipo",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ status: "error", mensaje: "Categoria no encontrada" });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        mensaje: "Categoria eliminada exitosamente",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ status: "error", mensaje: "Error al eliminar categoria" });
     }
   });
 

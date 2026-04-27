@@ -17,8 +17,10 @@ import { SellerOrdersPage } from "./pages/seller/orders";
 import { SellerServicesPage } from "./pages/seller/services";
 import { SellerSalesPage } from "./pages/seller/sales";
 import { SellerAgendaPage } from "./pages/seller/agenda";
+import { SellerCategoriesPage } from "./pages/seller/categories";
 import { AdminLayout } from "./pages/admin/admin-layout";
 import { AdminUsersPage } from "./pages/admin/users";
+import { AdminCategoriesPage } from "./pages/admin/categories";
 import { AdminReportsPage } from "./pages/admin/reports";
 import { AdminCatalogPage } from "./pages/admin/catalog";
 import { NotFoundPage } from "./pages/not-found";
@@ -51,6 +53,7 @@ export const router = createBrowserRouter([
           { path: "ventas", Component: SellerSalesPage },
           { path: "servicios", Component: SellerServicesPage },
           { path: "agenda", Component: SellerAgendaPage },
+          { path: "categorias", Component: SellerCategoriesPage },
         ],
       },
       {
@@ -58,6 +61,7 @@ export const router = createBrowserRouter([
         Component: AdminLayout,
         children: [
           { path: "usuarios", Component: AdminUsersPage },
+          { path: "categorias", Component: AdminCategoriesPage },
           { path: "reportes", Component: AdminReportsPage },
           { path: "catalogo", Component: AdminCatalogPage },
         ],

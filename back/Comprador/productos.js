@@ -92,34 +92,18 @@ function createCompradorRouter({ pool }) {
            p.id,
            p.nombre,
            p.calificacion,
-           p.precio AS precio_original,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN ROUND((p.precio * (1 - (d.porcentaje_descuento / 100)))::numeric, 2)
-             ELSE p.precio
-           END AS precio,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN d.porcentaje_descuento
-             ELSE NULL
-           END AS porcentaje_descuento,
+           p.precio,
            pi.url_imagen AS imagen_principal,
            COALESCE(n.nombre_comercial, '') AS empresa,
            COUNT(r.id) AS numero_resenas
          FROM productos p
          INNER JOIN producto_categoria pc ON pc.id_producto = p.id
          LEFT JOIN negocios n ON n.id = p.id_negocio
-         LEFT JOIN descuentos d ON d.id = p.id_descuento
          LEFT JOIN producto_imagenes pi ON pi.id_producto = p.id AND pi.es_principal = TRUE
          LEFT JOIN resenas r ON r.id_producto = p.id
          WHERE p.esta_activo = TRUE
            AND ${filtros.join(" AND ")}
-         GROUP BY p.id, p.nombre, p.calificacion, p.precio, pi.url_imagen, n.nombre_comercial, p.fecha_registro,
-                  d.id, d.codigo_cupon, d.porcentaje_descuento, d.fecha_inicio, d.fecha_fin
+         GROUP BY p.id, p.nombre, p.calificacion, p.precio, pi.url_imagen, n.nombre_comercial, p.fecha_registro
          ORDER BY ${orderBy}`,
         valores
       );
@@ -209,34 +193,18 @@ function createCompradorRouter({ pool }) {
            s.id,
            s.nombre,
            s.calificacion,
-           s.precio_base AS precio_original,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN ROUND((s.precio_base * (1 - (d.porcentaje_descuento / 100)))::numeric, 2)
-             ELSE s.precio_base
-           END AS precio,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN d.porcentaje_descuento
-             ELSE NULL
-           END AS porcentaje_descuento,
+           s.precio_base AS precio,
            si.url_imagen AS imagen_principal,
            COALESCE(n.nombre_comercial, '') AS empresa,
            COUNT(r.id) AS numero_resenas
          FROM servicios s
          INNER JOIN servicio_categoria sc ON sc.id_servicio = s.id
          INNER JOIN negocios n ON n.id = s.id_negocio
-         LEFT JOIN descuentos d ON d.id = s.id_descuento
          LEFT JOIN servicio_imagenes si ON si.id_servicio = s.id AND si.es_principal = TRUE
          LEFT JOIN resenas r ON r.id_servicio = s.id
          WHERE s.esta_activo = TRUE
            AND ${filtros.join(" AND ")}
-         GROUP BY s.id, s.nombre, s.calificacion, s.precio_base, si.url_imagen, n.nombre_comercial, s.fecha_registro,
-                  d.id, d.codigo_cupon, d.porcentaje_descuento, d.fecha_inicio, d.fecha_fin
+         GROUP BY s.id, s.nombre, s.calificacion, s.precio_base, si.url_imagen, n.nombre_comercial, s.fecha_registro
          ORDER BY ${orderBy}`,
         valores
       );
@@ -274,42 +242,18 @@ function createCompradorRouter({ pool }) {
            p.nombre,
            p.descripcion,
            p.calificacion,
-           p.precio AS precio_original,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN ROUND((p.precio * (1 - (d.porcentaje_descuento / 100)))::numeric, 2)
-             ELSE p.precio
-           END AS precio,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN d.porcentaje_descuento
-             ELSE NULL
-           END AS porcentaje_descuento,
+           p.precio,
            p.sku,
            p.fecha_registro,
            p.stock_total,
+           n.id AS id_negocio,
            img.url_imagen AS imagen_principal,
-           COALESCE(
-             (
-               SELECT json_agg(
-                 json_build_object(
-                   'id', pi.id,
-                   'url_imagen', pi.url_imagen,
-                   'es_principal', pi.es_principal,
-                   'orden_visual', pi.orden_visual
-                 )
-                 ORDER BY pi.es_principal DESC, pi.orden_visual ASC, pi.id ASC
-               )
-               FROM producto_imagenes pi
-               WHERE pi.id_producto = p.id
-             ),
-             '[]'::json
-           ) AS galeria_imagenes,
            COALESCE(n.nombre_comercial, '') AS empresa,
+           d.calle,
+           d.ciudad,
+           d.estado AS estado_direccion,
+           d.codigo_postal,
+           d.pais,
            COALESCE(
              (
                SELECT COUNT(*)
@@ -329,7 +273,7 @@ function createCompradorRouter({ pool }) {
            ) AS categorias
          FROM productos p
          LEFT JOIN negocios n ON n.id = p.id_negocio
-         LEFT JOIN descuentos d ON d.id = p.id_descuento
+         LEFT JOIN direcciones d ON d.id = n.id_direccion
          LEFT JOIN producto_imagenes img ON img.id_producto = p.id AND img.es_principal = TRUE
          WHERE p.id = $1
            AND p.esta_activo = TRUE
@@ -357,6 +301,14 @@ function createCompradorRouter({ pool }) {
         [idProducto]
       );
 
+      const imagenesResult = await pool.query(
+        `SELECT id, url_imagen, es_principal, orden_visual
+         FROM producto_imagenes
+         WHERE id_producto = $1
+         ORDER BY orden_visual ASC, id ASC`,
+        [idProducto]
+      );
+
       const producto = productoResult.rows[0];
 
       return res.status(200).json({
@@ -366,13 +318,22 @@ function createCompradorRouter({ pool }) {
           descripcion: producto.descripcion,
           calificacion: producto.calificacion !== null ? Number(producto.calificacion) : null,
           precio: Number(producto.precio),
-          precio_original: Number(producto.precio_original),
-          porcentaje_descuento: producto.porcentaje_descuento !== null ? Number(producto.porcentaje_descuento) : null,
           sku: producto.sku,
           fecha_registro: producto.fecha_registro,
           imagen_principal: producto.imagen_principal,
-          galeria_imagenes: producto.galeria_imagenes,
+          imagenes: imagenesResult.rows,
           empresa: producto.empresa,
+          id_negocio: producto.id_negocio,
+          sucursal: {
+            nombre: producto.empresa ? `${producto.empresa} - Matriz` : "Sucursal principal",
+            direccion: {
+              calle: producto.calle,
+              ciudad: producto.ciudad,
+              estado: producto.estado_direccion,
+              codigo_postal: producto.codigo_postal,
+              pais: producto.pais,
+            },
+          },
           stock_total: Number(producto.stock_total),
           numero_resenas: Number(producto.numero_resenas),
           categorias: producto.categorias,
@@ -410,41 +371,17 @@ function createCompradorRouter({ pool }) {
            s.nombre,
            s.descripcion,
            s.calificacion,
-           s.precio_base AS precio_original,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN ROUND((s.precio_base * (1 - (d.porcentaje_descuento / 100)))::numeric, 2)
-             ELSE s.precio_base
-           END AS precio,
-           CASE
-             WHEN d.id IS NOT NULL
-               AND d.codigo_cupon IS NULL
-               AND CURRENT_TIMESTAMP BETWEEN d.fecha_inicio AND d.fecha_fin
-             THEN d.porcentaje_descuento
-             ELSE NULL
-           END AS porcentaje_descuento,
+           s.precio_base,
            s.duracion_minutos,
            s.fecha_registro,
+           n.id AS id_negocio,
            img.url_imagen AS imagen_principal,
-           COALESCE(
-             (
-               SELECT json_agg(
-                 json_build_object(
-                   'id', si.id,
-                   'url_imagen', si.url_imagen,
-                   'es_principal', si.es_principal,
-                   'orden_visual', si.orden_visual
-                 )
-                 ORDER BY si.es_principal DESC, si.orden_visual ASC, si.id ASC
-               )
-               FROM servicio_imagenes si
-               WHERE si.id_servicio = s.id
-             ),
-             '[]'::json
-           ) AS galeria_imagenes,
            COALESCE(n.nombre_comercial, '') AS empresa,
+           d.calle,
+           d.ciudad,
+           d.estado AS estado_direccion,
+           d.codigo_postal,
+           d.pais,
            COALESCE(
              (
                SELECT COUNT(*)
@@ -455,7 +392,7 @@ function createCompradorRouter({ pool }) {
            ) AS numero_resenas
          FROM servicios s
          LEFT JOIN negocios n ON n.id = s.id_negocio
-         LEFT JOIN descuentos d ON d.id = s.id_descuento
+         LEFT JOIN direcciones d ON d.id = n.id_direccion
          LEFT JOIN servicio_imagenes img ON img.id_servicio = s.id AND img.es_principal = TRUE
          WHERE s.id = $1
            AND s.esta_activo = TRUE
@@ -514,6 +451,14 @@ function createCompradorRouter({ pool }) {
         [idServicio]
       );
 
+      const imagenesResult = await pool.query(
+        `SELECT id, url_imagen, es_principal, orden_visual
+         FROM servicio_imagenes
+         WHERE id_servicio = $1
+         ORDER BY orden_visual ASC, id ASC`,
+        [idServicio]
+      );
+
       const servicio = servicioResult.rows[0];
 
       return res.status(200).json({
@@ -522,14 +467,23 @@ function createCompradorRouter({ pool }) {
           nombre: servicio.nombre,
           descripcion: servicio.descripcion,
           calificacion: servicio.calificacion !== null ? Number(servicio.calificacion) : null,
-          precio: Number(servicio.precio),
-          precio_original: Number(servicio.precio_original),
-          porcentaje_descuento: servicio.porcentaje_descuento !== null ? Number(servicio.porcentaje_descuento) : null,
+          precio: Number(servicio.precio_base),
           duracion_minutos: servicio.duracion_minutos,
           fecha_registro: servicio.fecha_registro,
           imagen_principal: servicio.imagen_principal,
-          galeria_imagenes: servicio.galeria_imagenes,
+          imagenes: imagenesResult.rows,
           empresa: servicio.empresa,
+          id_negocio: servicio.id_negocio,
+          sucursal: {
+            nombre: servicio.empresa ? `${servicio.empresa} - Matriz` : "Sucursal principal",
+            direccion: {
+              calle: servicio.calle,
+              ciudad: servicio.ciudad,
+              estado: servicio.estado_direccion,
+              codigo_postal: servicio.codigo_postal,
+              pais: servicio.pais,
+            },
+          },
           numero_resenas: Number(servicio.numero_resenas),
           categorias: categoriasResult.rows.map((categoria) => categoria.nombre_categoria),
           agenda_disponible: agendaResult.rows.map((slot) => ({
@@ -565,6 +519,42 @@ function createCompradorRouter({ pool }) {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ mensaje: "Error al obtener detalle del servicio" });
+    }
+  });
+
+  // Agregar una reseña
+  router.post("/comprador/resenas", async (req, res) => {
+    const usuarioId = Number(req.session?.usuario_id || 0);
+
+    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+      return res.status(401).json({ mensaje: "Debes iniciar sesion para dejar una resena" });
+    }
+
+    const { id_producto, id_servicio, calificacion, comentario } = req.body;
+
+    if (!calificacion || calificacion < 1 || calificacion > 5) {
+      return res.status(400).json({ mensaje: "Calificacion invalida" });
+    }
+
+    if (!id_producto && !id_servicio) {
+      return res.status(400).json({ mensaje: "Debes proveer id_producto o id_servicio" });
+    }
+
+    try {
+      const result = await pool.query(
+        `INSERT INTO resenas (id_producto, id_servicio, id_usuario, calificacion, comentario, compra_verificada)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id`,
+        [id_producto || null, id_servicio || null, usuarioId, calificacion, comentario, true]
+      );
+
+      return res.status(201).json({
+        mensaje: "Resena creada exitosamente",
+        id_resena: result.rows[0].id
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ mensaje: "Error al crear la resena" });
     }
   });
 

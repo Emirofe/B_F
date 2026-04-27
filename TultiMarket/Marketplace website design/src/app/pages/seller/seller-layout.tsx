@@ -1,4 +1,4 @@
-import { Package, Boxes, Gift, ClipboardList, BarChart3, User, Calendar, Wrench } from "lucide-react";
+import { Package, Boxes, Gift, ClipboardList, BarChart3, User, Calendar, Wrench, Tag } from "lucide-react";
 import { DashboardLayout } from "../../components/layout/dashboard-layout";
 import { useStore } from "../../context/store-context";
 import { SetupBusiness } from "./setup-business";

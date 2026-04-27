@@ -13,9 +13,12 @@ import {
   MapPin,
   Package,
   Loader2,
+  CheckCircle2,
+  CalendarDays,
+  Hash,
 } from "lucide-react";
-import { type Product } from "../data/mock-data";
-import { getProductoDetalleApi, getServicioDetalleApi } from "../api/api-client";
+import { products as mockProducts, mockBundles, type Product } from "../data/mock-data";
+import { getProductoDetalleApi, getServicioDetalleApi, createReviewApi } from "../api/api-client";
 import { StarRating } from "../components/star-rating";
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
@@ -39,10 +42,20 @@ export function ProductDetailPage() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   
   // States para Servicios
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+
+  const formatDate = (date?: string) => {
+    if (!date) return "No disponible";
+    return new Date(`${date}T00:00:00`).toLocaleDateString("es-MX", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   // ─── Cargar producto SOLO del backend (fiel a la BD) ──────────────────────
   useEffect(() => {
@@ -101,9 +114,10 @@ export function ProductDetailPage() {
   }
 
   const inWishlist = isInWishlist(product.id);
-  // TODO: Agregar endpoint de productos relacionados / bundles en el backend
-  const sellerBundles: any[] = [];
-  const relatedProducts: Product[] = [];
+  const sellerBundles = mockBundles.filter((b) => b.sellerId === product.sellerId);
+  const relatedProducts = mockProducts
+    .filter((p) => p.category === product.category && p.id !== product.id)
+    .slice(0, 4);
 
   const handleAddToCart = () => {
     if (isService) {
@@ -137,8 +151,10 @@ export function ProductDetailPage() {
     }
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!product || isSubmittingReview) return;
+    
     if (reviewRating === 0) {
       toast.error("Selecciona una calificacion");
       return;
@@ -147,10 +163,34 @@ export function ProductDetailPage() {
       toast.error("El comentario debe tener al menos 10 caracteres");
       return;
     }
-    toast.success("Resena enviada exitosamente");
-    setShowReviewForm(false);
-    setReviewRating(0);
-    setReviewComment("");
+    
+    setIsSubmittingReview(true);
+    try {
+      await createReviewApi(
+        product.type as "producto" | "servicio",
+        Number(product.id),
+        reviewRating,
+        reviewComment
+      );
+      toast.success("Resena enviada exitosamente");
+      setShowReviewForm(false);
+      setReviewRating(0);
+      setReviewComment("");
+      
+      // Recargar el producto para ver la reseña inmediatamente
+      const numericId = Number(product.id);
+      if (product.type === "servicio") {
+        const prod = await getServicioDetalleApi(numericId);
+        setProduct(prod);
+      } else {
+        const prod = await getProductoDetalleApi(numericId);
+        setProduct(prod);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Error al enviar la resena");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   return (
@@ -210,6 +250,21 @@ export function ProductDetailPage() {
 
               <div className="flex items-center gap-3 mb-4">
                 <StarRating rating={product.rating} size={18} showCount count={product.reviewCount} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                <div className="rounded-xl border border-border bg-gray-50 p-3">
+                  <p className="text-muted-foreground flex items-center gap-2" style={{ fontSize: 12 }}>
+                    <Hash size={14} /> SKU
+                  </p>
+                  <p style={{ fontSize: 14, fontWeight: 600 }}>{product.sku || "No disponible"}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-gray-50 p-3">
+                  <p className="text-muted-foreground flex items-center gap-2" style={{ fontSize: 12 }}>
+                    <CalendarDays size={14} /> Publicado
+                  </p>
+                  <p style={{ fontSize: 14, fontWeight: 600 }}>{formatDate(product.publicationDate)}</p>
+                </div>
               </div>
 
               <div className="flex items-baseline gap-3 mb-4">
@@ -345,11 +400,22 @@ export function ProductDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
-                  <Package size={20} className="text-primary shrink-0" />
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 500 }}>Envio estimado: 3-5 dias habiles</p>
-                    <p className="text-muted-foreground" style={{ fontSize: 13 }}>Contexto: Fiestas</p>
+                <div className="space-y-3">
+                  <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
+                    <Package size={20} className="text-primary shrink-0" />
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 500 }}>Envio estimado: 3-5 dias habiles</p>
+                      <p className="text-muted-foreground" style={{ fontSize: 13 }}>Contexto: Fiestas</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-border p-4 flex items-start gap-3">
+                    <MapPin size={18} className="text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 600 }}>{product.branchName || "Sucursal principal"}</p>
+                      <p className="text-muted-foreground mt-1" style={{ fontSize: 13 }}>
+                        {product.branchAddress || "Ubicacion no disponible"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -407,8 +473,14 @@ export function ProductDetailPage() {
                       style={{ fontSize: 14 }}
                     />
                     <div className="flex gap-2 mt-3">
-                      <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg" style={{ fontSize: 14 }}>
-                        Enviar
+                      <button 
+                        type="submit" 
+                        disabled={isSubmittingReview}
+                        className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2 disabled:opacity-50" 
+                        style={{ fontSize: 14 }}
+                      >
+                        {isSubmittingReview && <Loader2 size={14} className="animate-spin" />}
+                        {isSubmittingReview ? "Enviando..." : "Enviar"}
                       </button>
                       <button
                         type="button"
@@ -432,8 +504,15 @@ export function ProductDetailPage() {
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary" style={{ fontSize: 14, fontWeight: 600 }}>
                             {review.userName[0]}
                           </div>
-                          <div>
-                            <p style={{ fontSize: 14, fontWeight: 500 }}>{review.userName}</p>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p style={{ fontSize: 14, fontWeight: 500 }}>{review.userName}</p>
+                              {review.verifiedPurchase && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-700" style={{ fontSize: 11, fontWeight: 600 }}>
+                                  <CheckCircle2 size={12} /> Compra verificada
+                                </span>
+                              )}
+                            </div>
                             <p className="text-muted-foreground" style={{ fontSize: 12 }}>{review.date}</p>
                           </div>
                         </div>

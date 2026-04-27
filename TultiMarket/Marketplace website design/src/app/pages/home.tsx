@@ -10,18 +10,18 @@ import { Footer } from "../components/layout/footer";
 const bannerImages = [
   {
     image: "https://images.unsplash.com/photo-1643537243683-a61ba2e77cf1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25mZXR0aSUyMGNlbGVicmF0aW9uJTIwZmVzdGl2ZXxlbnwxfHx8fDE3NzI2OTgyODF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    title: "Bienvenida",
-    subtitle: "Busca y encuentra productos en nuestro amplio catalogo",
+    title: "Gran Venta de Temporada",
+    subtitle: "Hasta 40% de descuento en decoraciones para fiestas",
   },
   {
     image: "https://images.unsplash.com/photo-1759124650346-43900f8479d4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiaXJ0aGRheSUyMHBhcnR5JTIwZGVjb3JhdGlvbiUyMHRhYmxlfGVufDF8fHx8MTc3Mjc2NTAxNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    title: "Conocer más",
+    title: "Fiestas Inolvidables",
     subtitle: "Todo para tu celebracion en un solo lugar",
   },
   {
     image: "https://images.unsplash.com/photo-1763913270132-00b89e7fd5aa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYXJ0eSUyMGhhdHMlMjBjb2xvcmZ1bCUyMGFjY2Vzc29yaWVzfGVufDF8fHx8MTc3Mjc2NTAxN3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    title: "Novedades",
-    subtitle: "Descubre los productos en tultimarket",
+    title: "Nuevos Productos",
+    subtitle: "Descubre las ultimas tendencias en accesorios de fiesta",
   },
 ];
 
@@ -90,10 +90,10 @@ export function HomePage() {
           calificacion_min: minRating > 0 ? minRating : undefined,
           ordenar:
             sortBy === "precio-asc" ? "precio_menor"
-              : sortBy === "precio-desc" ? "precio_mayor"
-                : sortBy === "rating" ? "mejor_calificados"
-                  : sortBy === "nombre" ? "nombre_az"
-                    : "mejor_calificados",
+            : sortBy === "precio-desc" ? "precio_mayor"
+            : sortBy === "rating" ? "mejor_calificados"
+            : sortBy === "nombre" ? "nombre_az"
+            : "mejor_calificados",
         };
         Promise.all([
           getProductosPorCategoriaApi(catId, filtros).catch(() => []),
@@ -189,8 +189,9 @@ export function HomePage() {
           {bannerImages.map((banner, idx) => (
             <div
               key={idx}
-              className={`absolute inset-0 transition-opacity duration-700 ${idx === currentBanner ? "opacity-100" : "opacity-0"
-                }`}
+              className={`absolute inset-0 transition-opacity duration-700 ${
+                idx === currentBanner ? "opacity-100" : "opacity-0"
+              }`}
             >
               <img
                 src={banner.image}
@@ -237,8 +238,9 @@ export function HomePage() {
               <button
                 key={idx}
                 onClick={() => setCurrentBanner(idx)}
-                className={`w-3 h-3 rounded-full transition-colors ${idx === currentBanner ? "bg-amber-400" : "bg-white/50"
-                  }`}
+                className={`w-3 h-3 rounded-full transition-colors ${
+                  idx === currentBanner ? "bg-amber-400" : "bg-white/50"
+                }`}
               />
             ))}
           </div>
@@ -307,8 +309,8 @@ export function HomePage() {
               {categoryFilter
                 ? categories.find((c) => c.id === categoryFilter)?.name || "Productos"
                 : searchFilter
-                  ? `Resultados para "${searchFilter}"`
-                  : "Todos los Productos"}
+                ? `Resultados para "${searchFilter}"`
+                : "Todos los Productos"}
             </h2>
             <p className="text-muted-foreground" style={{ fontSize: 14 }}>
               {filteredProducts.length} producto{filteredProducts.length !== 1 ? "s" : ""} encontrado{filteredProducts.length !== 1 ? "s" : ""}

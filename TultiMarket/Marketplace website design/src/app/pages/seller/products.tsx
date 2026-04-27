@@ -9,6 +9,7 @@ import {
 } from "../../api/api-client";
 import { useStore } from "../../context/store-context";
 import { toast } from "sonner";
+import { DynamicCategoryField } from "../../components/dynamic-category-field";
 
 interface ProductFormData {
   name: string;
@@ -16,6 +17,7 @@ interface ProductFormData {
   price: string;
   stock: string;
   category: string;
+  sku: string;
 }
 
 // Tipo interno para los productos del vendedor (del backend)
@@ -27,9 +29,8 @@ interface SellerProduct {
   precio: number;
   stock_total: number;
   sku: string | null;
+  esta_activo: boolean;
   fecha_registro: string;
-  id_categoria?: number | null;
-  imagen_principal?: string | null;
 }
 
 export function SellerProductsPage() {
@@ -45,13 +46,14 @@ export function SellerProductsPage() {
     price: "",
     stock: "",
     category: "",
+    sku: "",
   });
   const [imageUrl, setImageUrl] = useState("");
-  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string; tipo?: string }[]>([]);
 
   // ─── Cargar categorías del backend ────────────────────────────────────────
   useEffect(() => {
-    getCategoriasApi()
+    getCategoriasApi("producto")
       .then((cats) => {
         setDbCategories(cats);
         if (cats.length > 0 && !formData.category) {
@@ -83,14 +85,6 @@ export function SellerProductsPage() {
     p.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleFormChange = (field: keyof ProductFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleImagesChange = (images: ProductImage[]) => {
-    setFormImages(images);
-  };
-
   // ─── Crear o Editar producto (conectado al backend) ───────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +105,7 @@ export function SellerProductsPage() {
           descripcion: formData.description || undefined,
           precio: parseFloat(formData.price),
           stock_total: formData.stock ? parseInt(formData.stock) : undefined,
+          sku: formData.sku || undefined,
           imagenes: imagenesUrls.length > 0 ? imagenesUrls : undefined,
         });
         // Actualizar categorías por separado si se proporcionó
@@ -124,24 +119,16 @@ export function SellerProductsPage() {
         }
         toast.success("Producto actualizado");
       } else {
-        // En backend, createProductoVendedorApi ignora id_categorias, devuelve el producto
-        const result: any = await createProductoVendedorApi({
+        await createProductoVendedorApi({
           nombre: formData.name,
           descripcion: formData.description || undefined,
           precio: parseFloat(formData.price),
           id_negocio: negocioId,
           stock_total: formData.stock ? parseInt(formData.stock) : 0,
+          sku: formData.sku || undefined,
           imagenes: imagenesUrls,
+          id_categorias: categoriasIds,
         });
-        
-        if (categoriasIds.length > 0 && result && result.id) {
-          await fetch(`http://localhost:3000/api/vendedor/productos/${result.id}/categorias`, {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_categorias: categoriasIds }),
-          });
-        }
         toast.success("Producto creado");
       }
       closeForm();
@@ -162,16 +149,16 @@ export function SellerProductsPage() {
       description: product.descripcion ?? "",
       price: String(product.precio),
       stock: String(product.stock_total),
-      category: product.id_categoria ? String(product.id_categoria) : (dbCategories[0]?.id || ""),
+      category: "cumpleanos",
+      sku: product.sku ?? "",
     });
-    setImageUrl(product.imagen_principal || "");
     setShowForm(true);
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({ name: "", description: "", price: "", stock: "", category: dbCategories[0]?.id || "" });
+    setFormData({ name: "", description: "", price: "", stock: "", category: dbCategories[0]?.id || "", sku: "" });
     setImageUrl("");
   };
 
@@ -236,7 +223,7 @@ export function SellerProductsPage() {
           onClick={() => {
             setShowForm(true);
             setEditingId(null);
-            setFormData({ name: "", description: "", price: "", stock: "", category: dbCategories[0]?.id || "" });
+            setFormData({ name: "", description: "", price: "", stock: "", category: dbCategories[0]?.id || "", sku: "" });
             setImageUrl("");
           }}
           className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-primary/90 transition-colors"
@@ -284,11 +271,19 @@ export function SellerProductsPage() {
             </div>
             <div>
               <label className="block mb-1 text-muted-foreground" style={{ fontSize: 13 }}>Categoría</label>
-              <select value={formData.category} onChange={(e) => setFormData(p => ({...p, category: e.target.value}))} className="w-full px-4 py-3 rounded-lg border border-border bg-input-background" style={{ fontSize: 14 }}>
-                {dbCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <DynamicCategoryField
+                allowedType="producto"
+                categories={dbCategories}
+                value={formData.category}
+                onChange={(category) => setFormData((prev) => ({ ...prev, category }))}
+                onCreated={(category) => {
+                  setDbCategories((prev) => [...prev, category].sort((a, b) => a.name.localeCompare(b.name)));
+                }}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-muted-foreground" style={{ fontSize: 13 }}>SKU (opcional)</label>
+              <input value={formData.sku} onChange={(e) => setFormData(p => ({...p, sku: e.target.value}))} placeholder="Ej: CAM-ROJ-M" className="w-full px-4 py-3 rounded-lg border border-border bg-input-background" style={{ fontSize: 14 }} />
             </div>
             <div>
               <label className="block mb-1 text-muted-foreground" style={{ fontSize: 13 }}>URL de Imagen (opcional)</label>
