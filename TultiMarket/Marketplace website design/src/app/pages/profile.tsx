@@ -328,7 +328,7 @@ export function ProfilePage() {
           {[
             { id: "info", label: "Informacion", icon: <User size={18} /> },
             { id: "addresses", label: "Direcciones", icon: <MapPin size={18} /> },
-            { id: "payments", label: "Pagos", icon: <CreditCard size={18} /> },
+            { id: "payments", label: "Métodos de Pago", icon: <CreditCard size={18} /> },
             { id: "security", label: "Seguridad", icon: <ShieldCheck size={18} /> },
           ].map((tab) => (
             <button
@@ -559,7 +559,7 @@ export function ProfilePage() {
                   style={{ fontSize: 14, fontWeight: 500 }}
                   onClick={() => setShowAddPayment(!showAddPayment)}
                 >
-                  <Plus size={16} /> Agregar Tarjeta
+                  <Plus size={16} /> Agregar Método de Pago
                 </button>
               </div>
 
@@ -611,6 +611,15 @@ export function ProfilePage() {
                       className="w-full px-3 py-2 rounded-lg border border-border bg-white"
                       style={{ fontSize: 14 }}
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-gray-400" style={{ fontSize: 12 }}>Nombre del Propietario</label>
+                    <input
+                      placeholder="Nombre del Propietario"
+                      disabled
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                      style={{ fontSize: 14 }}
                     />
                   </div>
                   <div className="flex items-end gap-2">

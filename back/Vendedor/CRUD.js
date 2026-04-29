@@ -65,6 +65,24 @@ function createVendedorRouter({ pool }) {
     }
   });
 
+  // Verifica si una categoria con el mismo nombre y tipo ya existe.
+  router.get("/api/vendedor/categorias/check", async (req, res) => {
+    try {
+      const { nombre, tipo } = req.query;
+      if (!nombre || !tipo) {
+        return res.status(400).json({ error: "nombre y tipo son obligatorios" });
+      }
+      const result = await pool.query(
+        "SELECT id FROM categorias WHERE nombre_categoria = $1 AND tipo = $2",
+        [String(nombre).trim(), String(tipo).trim().toLowerCase()]
+      );
+      return res.json({ exists: result.rows.length > 0 });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Error al verificar categoria" });
+    }
+  });
+
   // Lista categorias y permite filtrar por tipo compatible.
   router.get("/api/vendedor/categorias", async (req, res) => {
     try {
@@ -230,6 +248,15 @@ function createVendedorRouter({ pool }) {
          ORDER BY orden_visual ASC, id ASC`,
         [producto.id]
       );
+
+      // Crear lote de inventario automáticamente si el producto tiene stock
+      if (stockTotalNum > 0) {
+        await client.query(
+          `INSERT INTO lotes_inventario (id_producto, stock_disponible, fecha_recibido, fecha_caducidad)
+           VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE + INTERVAL '2 years')`,
+          [producto.id, stockTotalNum]
+        );
+      }
 
       await client.query("COMMIT");
 

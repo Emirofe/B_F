@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 export function CartPage() {
   const { cart, updateCartQuantity, removeFromCart, getCartTotal } = useStore();
-  const total = getCartTotal();
+  const total = Number(getCartTotal()) || 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -65,7 +65,7 @@ export function CartPage() {
                       </div>
                     )}
                     <p className="text-primary mt-2" style={{ fontSize: 18, fontWeight: 700 }}>
-                      ${item.product.price.toFixed(2)}
+                      ${(Number(item.product.price) || 0).toFixed(2)}
                     </p>
 
                     <div className="flex items-center justify-between mt-4">
@@ -100,7 +100,7 @@ export function CartPage() {
                       )}
                       <div className="flex items-center gap-4">
                         <span style={{ fontSize: 16, fontWeight: 600 }}>
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          ${((Number(item.product.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}
                         </span>
                         <button
                           onClick={() => removeFromCart(item.product.id)}

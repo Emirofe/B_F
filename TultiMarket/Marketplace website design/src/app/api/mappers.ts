@@ -52,10 +52,22 @@ export interface RawProductoDetalle {
   descripcion: string | null;
   calificacion: number | null;
   precio: number;
+  precio_original: number;
+  porcentaje_descuento: number | null;
   sku: string | null;
   fecha_registro: string;
   imagen_principal: string | null;
+  galeria_imagenes: Array<{ id: number; url_imagen: string; es_principal: boolean; orden_visual: number }> | null;
   empresa: string;
+  id_negocio: number | null;
+  sucursal?: {
+    nombre: string;
+    calle: string | null;
+    ciudad: string | null;
+    estado: string | null;
+    codigo_postal: string | null;
+    pais: string | null;
+  };
   stock_total: number;
   numero_resenas: number;
   categorias: string[];
@@ -83,6 +95,7 @@ export interface RawServicioDetalle {
   duracion_minutos: number | null;
   fecha_registro: string;
   imagen_principal: string | null;
+  galeria_imagenes: Array<{ id: number; url_imagen: string; es_principal: boolean; orden_visual: number }> | null;
   empresa: string;
   numero_resenas: number;
   categorias: string[];
@@ -101,7 +114,8 @@ export interface RawAgendaSlot {
 /** Lo que devuelve GET /comprador/categorias → [] */
 export interface RawCategoria {
   id: number;
-  nombre: string;
+  nombre?: string;
+  nombre_categoria?: string;
   tipo: "producto" | "servicio" | "ambos";
 }
 
@@ -170,28 +184,58 @@ export function mapResena(raw: RawResena): Review {
     userName: raw.usuario.nombre,
     rating: raw.calificacion,
     comment: raw.comentario ?? "",
-    date: raw.fecha_creacion.split("T")[0], // "2026-04-07T..." → "2026-04-07"
+    date: new Date(raw.fecha_creacion).toISOString().split("T")[0],
+    verifiedPurchase: raw.compra_verificada ?? false,
   };
+}
+
+/** Construye un array de URLs de imagen a partir de la galería del backend */
+function mapImageGallery(
+  imagenPrincipal: string | null | undefined,
+  galeria: Array<{ url_imagen: string; orden_visual: number }> | null
+): string[] {
+  const ordered = (galeria ?? [])
+    .sort((a, b) => a.orden_visual - b.orden_visual)
+    .map((item) => toImageUrl(item.url_imagen));
+  const fallback = toImageUrl(imagenPrincipal);
+  return ordered.length > 0 ? ordered : [fallback];
+}
+
+/** Formatea la dirección de la sucursal como string legible */
+function formatBranchAddress(sucursal?: RawProductoDetalle["sucursal"]): string {
+  if (!sucursal) return "Ubicacion no disponible";
+  const parts = [sucursal.calle, sucursal.ciudad, sucursal.estado, sucursal.codigo_postal, sucursal.pais].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "Ubicacion no disponible";
 }
 
 /** Convierte el detalle completo de un PRODUCTO del back al tipo Product del front */
 export function mapProductoDetalle(raw: RawProductoDetalle): Product {
+  const images = mapImageGallery(raw.imagen_principal, raw.galeria_imagenes ?? null);
   return {
     id: String(raw.id),
     name: raw.nombre,
     description: raw.descripcion ?? "",
     price: Number(raw.precio),
-    image: toImageUrl(raw.imagen_principal),
-    images: [toImageUrl(raw.imagen_principal)], // el back solo retorna 1 imagen principal
+    originalPrice: raw.precio_original != null ? Number(raw.precio_original) : undefined,
+    discountPercent: raw.porcentaje_descuento != null ? Number(raw.porcentaje_descuento) : undefined,
+    image: images[0],
+    images,
     category: raw.categorias[0] ?? "general",
     rating: raw.calificacion ?? 0,
     reviewCount: raw.numero_resenas,
     stock: raw.stock_total,
-    sellerId: "0",             // el back no retorna id del negocio en este endpoint
+    sellerId: raw.id_negocio ? String(raw.id_negocio) : "0",
     sellerName: raw.empresa,
     reviews: raw.resenas.map(mapResena),
     type: "producto",
     status: "Aprobado",
+    sku: raw.sku ?? undefined,
+    publicationDate: raw.fecha_registro
+      ? new Date(raw.fecha_registro).toISOString().split("T")[0]
+      : undefined,
+    branchName: raw.sucursal?.nombre ?? raw.empresa,
+    branchAddress: formatBranchAddress(raw.sucursal),
+    businessId: raw.id_negocio ? String(raw.id_negocio) : undefined,
   };
 }
 
@@ -218,13 +262,14 @@ export function mapProductoLista(raw: RawProductoLista): Product {
 
 /** Convierte el detalle completo de un SERVICIO del back al tipo Product del front */
 export function mapServicioDetalle(raw: RawServicioDetalle): Product {
+  const images = mapImageGallery(raw.imagen_principal, raw.galeria_imagenes ?? null);
   return {
     id: String(raw.id),
     name: raw.nombre,
     description: raw.descripcion ?? "",
     price: Number(raw.precio),
-    image: toImageUrl(raw.imagen_principal),
-    images: [toImageUrl(raw.imagen_principal)],
+    image: images[0],
+    images,
     category: raw.categorias[0] ?? "general",
     rating: raw.calificacion ?? 0,
     reviewCount: raw.numero_resenas,
@@ -238,6 +283,9 @@ export function mapServicioDetalle(raw: RawServicioDetalle): Product {
       ? `${raw.agenda_disponible.length} horarios disponibles`
       : "Sin horarios disponibles",
     status: "Aprobado",
+    publicationDate: raw.fecha_registro
+      ? new Date(raw.fecha_registro).toISOString().split("T")[0]
+      : undefined,
   };
 }
 
@@ -347,7 +395,7 @@ export function mapPedidoVendedor(raw: RawPedido): Order {
 export function mapCategoria(raw: RawCategoria): { id: string; name: string; tipo: string } {
   return {
     id: String(raw.id),
-    name: raw.nombre,
+    name: raw.nombre ?? raw.nombre_categoria ?? "",
     tipo: raw.tipo,
   };
 }

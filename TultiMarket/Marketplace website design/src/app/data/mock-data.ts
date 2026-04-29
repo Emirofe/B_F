@@ -19,6 +19,15 @@ export interface Product {
   availability?: string;
   location?: string;
   status?: "Aprobado" | "En revision" | "Rechazado";
+  // Campos añadidos para Features 4-5 (galería, sucursal)
+  sku?: string;
+  publicationDate?: string;
+  branchName?: string;
+  branchAddress?: string;
+  businessId?: string;
+  // Campos para descuentos reales de BD
+  originalPrice?: number;
+  discountPercent?: number;
 }
 
 export interface Review {
@@ -28,6 +37,7 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
+  verifiedPurchase?: boolean;
 }
 
 export interface CartItem {
@@ -44,10 +54,11 @@ export interface Order {
   date: string;
   items: CartItem[];
   total: number;
-  status: "En preparacion" | "Enviado" | "Entregado";
+  status: string;
   buyerName: string;
   buyerId: string;
   address: string;
+  paymentMethod?: string;
 }
 
 export interface User {

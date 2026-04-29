@@ -310,6 +310,12 @@ function createCompradorRouter({ pool }) {
              '[]'::json
            ) AS galeria_imagenes,
            COALESCE(n.nombre_comercial, '') AS empresa,
+           n.id AS id_negocio,
+           d_dir.calle AS dir_calle,
+           d_dir.ciudad AS dir_ciudad,
+           d_dir.estado AS dir_estado,
+           d_dir.codigo_postal AS dir_codigo_postal,
+           d_dir.pais AS dir_pais,
            COALESCE(
              (
                SELECT COUNT(*)
@@ -329,6 +335,7 @@ function createCompradorRouter({ pool }) {
            ) AS categorias
          FROM productos p
          LEFT JOIN negocios n ON n.id = p.id_negocio
+         LEFT JOIN direcciones d_dir ON d_dir.id = n.id_direccion
          LEFT JOIN descuentos d ON d.id = p.id_descuento
          LEFT JOIN producto_imagenes img ON img.id_producto = p.id AND img.es_principal = TRUE
          WHERE p.id = $1
@@ -373,6 +380,15 @@ function createCompradorRouter({ pool }) {
           imagen_principal: producto.imagen_principal,
           galeria_imagenes: producto.galeria_imagenes,
           empresa: producto.empresa,
+          id_negocio: producto.id_negocio,
+          sucursal: {
+            nombre: producto.empresa,
+            calle: producto.dir_calle,
+            ciudad: producto.dir_ciudad,
+            estado: producto.dir_estado,
+            codigo_postal: producto.dir_codigo_postal,
+            pais: producto.dir_pais,
+          },
           stock_total: Number(producto.stock_total),
           numero_resenas: Number(producto.numero_resenas),
           categorias: producto.categorias,
@@ -565,6 +581,80 @@ function createCompradorRouter({ pool }) {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ mensaje: "Error al obtener detalle del servicio" });
+    }
+  });
+
+  // ── Crear reseña (requiere sesión) ────────────────────────────────────────
+  router.post("/comprador/resenas", async (req, res) => {
+    const idUsuario = Number(req.session?.usuario_id || 0);
+    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
+      return res.status(401).json({ mensaje: "Debes iniciar sesion" });
+    }
+
+    const { tipo, id_item, calificacion, comentario } = req.body;
+
+    // Validaciones
+    if (!tipo || !["producto", "servicio"].includes(String(tipo))) {
+      return res.status(400).json({ mensaje: "tipo debe ser 'producto' o 'servicio'" });
+    }
+
+    const idItem = Number(id_item);
+    if (!Number.isInteger(idItem) || idItem <= 0) {
+      return res.status(400).json({ mensaje: "id_item invalido" });
+    }
+
+    const calNum = Number(calificacion);
+    if (!Number.isInteger(calNum) || calNum < 1 || calNum > 5) {
+      return res.status(400).json({ mensaje: "calificacion debe ser entre 1 y 5" });
+    }
+
+    if (!comentario || String(comentario).trim().length < 10) {
+      return res.status(400).json({ mensaje: "El comentario debe tener al menos 10 caracteres" });
+    }
+
+    try {
+      // Verificar que el item existe
+      if (tipo === "producto") {
+        const prod = await pool.query(
+          "SELECT id FROM productos WHERE id = $1 AND esta_activo = TRUE LIMIT 1",
+          [idItem]
+        );
+        if (prod.rows.length === 0) {
+          return res.status(404).json({ mensaje: "Producto no encontrado" });
+        }
+      } else {
+        const serv = await pool.query(
+          "SELECT id FROM servicios WHERE id = $1 AND esta_activo = TRUE LIMIT 1",
+          [idItem]
+        );
+        if (serv.rows.length === 0) {
+          return res.status(404).json({ mensaje: "Servicio no encontrado" });
+        }
+      }
+
+      // Verificar si ya dejó una reseña
+      const yaExiste = await pool.query(
+        `SELECT id FROM resenas WHERE id_usuario = $1 AND ${tipo === "producto" ? "id_producto" : "id_servicio"} = $2 LIMIT 1`,
+        [idUsuario, idItem]
+      );
+      if (yaExiste.rows.length > 0) {
+        return res.status(409).json({ mensaje: "Ya has dejado una resena para este item" });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO resenas (id_usuario, ${tipo === "producto" ? "id_producto" : "id_servicio"}, calificacion, comentario)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, calificacion, comentario, compra_verificada, fecha_creacion`,
+        [idUsuario, idItem, calNum, String(comentario).trim()]
+      );
+
+      return res.status(201).json({
+        mensaje: "Resena creada exitosamente",
+        resena: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ mensaje: "Error al crear resena" });
     }
   });
 

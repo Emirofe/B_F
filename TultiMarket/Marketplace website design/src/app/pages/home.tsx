@@ -59,12 +59,12 @@ export function HomePage() {
   const categoryFilter = searchParams.get("categoria");
   const searchFilter = searchParams.get("buscar");
 
-  // ─── Cargar categorías del backend ────────────────────────────────────────
+  // ─── Cargar categorías del backend (máximo 10 para el home) ────────────────
   useEffect(() => {
     setIsLoadingCategories(true);
     getCategoriasApi()
       .then((cats) => {
-        const withIcons = cats.map((c) => ({
+        const withIcons = cats.slice(0, 10).map((c) => ({
           ...c,
           icon: categoryIcons[c.name.toLowerCase()] ?? "🏷️",
         }));

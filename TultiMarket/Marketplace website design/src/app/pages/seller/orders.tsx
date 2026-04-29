@@ -136,7 +136,7 @@ export function SellerOrdersPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground" style={{ fontSize: 13 }}>Total</p>
-                  <p style={{ fontSize: 16, fontWeight: 600 }}>${order.total.toFixed(2)}</p>
+                  <p style={{ fontSize: 16, fontWeight: 600 }}>${(Number(order.total) || 0).toFixed(2)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -157,9 +157,9 @@ export function SellerOrdersPage() {
                       </div>
                       <div className="flex-1">
                         <p style={{ fontSize: 14 }}>{item.name}</p>
-                        <p className="text-muted-foreground" style={{ fontSize: 13 }}>Cant: {item.quantity} x ${item.price.toFixed(2)}</p>
+                        <p className="text-muted-foreground" style={{ fontSize: 13 }}>Cant: {item.quantity} x ${(Number(item.price) || 0).toFixed(2)}</p>
                       </div>
-                      <p style={{ fontSize: 14, fontWeight: 600 }}>${item.subtotal.toFixed(2)}</p>
+                      <p style={{ fontSize: 14, fontWeight: 600 }}>${(Number(item.subtotal) || 0).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>

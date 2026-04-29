@@ -13,9 +13,12 @@ import {
   MapPin,
   Package,
   Loader2,
+  Hash,
+  CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
 import { type Product } from "../data/mock-data";
-import { getProductoDetalleApi, getServicioDetalleApi } from "../api/api-client";
+import { getProductoDetalleApi, getServicioDetalleApi, createReviewApi } from "../api/api-client";
 import { StarRating } from "../components/star-rating";
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
@@ -39,10 +42,20 @@ export function ProductDetailPage() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   
   // States para Servicios
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+
+  const formatDate = (date?: string) => {
+    if (!date) return "No disponible";
+    return new Date(`${date}T00:00:00`).toLocaleDateString("es-MX", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   // ─── Cargar producto SOLO del backend (fiel a la BD) ──────────────────────
   useEffect(() => {
@@ -137,8 +150,10 @@ export function ProductDetailPage() {
     }
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!product || isSubmittingReview) return;
+    
     if (reviewRating === 0) {
       toast.error("Selecciona una calificacion");
       return;
@@ -147,10 +162,34 @@ export function ProductDetailPage() {
       toast.error("El comentario debe tener al menos 10 caracteres");
       return;
     }
-    toast.success("Resena enviada exitosamente");
-    setShowReviewForm(false);
-    setReviewRating(0);
-    setReviewComment("");
+    
+    setIsSubmittingReview(true);
+    try {
+      await createReviewApi(
+        product.type as "producto" | "servicio",
+        Number(product.id),
+        reviewRating,
+        reviewComment
+      );
+      toast.success("Resena enviada exitosamente");
+      setShowReviewForm(false);
+      setReviewRating(0);
+      setReviewComment("");
+      
+      // Recargar el producto para ver la reseña inmediatamente
+      const numericId = Number(product.id);
+      if (product.type === "servicio") {
+        const prod = await getServicioDetalleApi(numericId);
+        setProduct(prod);
+      } else {
+        const prod = await getProductoDetalleApi(numericId);
+        setProduct(prod);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Error al enviar la resena");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   return (
@@ -212,17 +251,32 @@ export function ProductDetailPage() {
                 <StarRating rating={product.rating} size={18} showCount count={product.reviewCount} />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                <div className="rounded-xl border border-border bg-gray-50 p-3">
+                  <p className="text-muted-foreground flex items-center gap-2" style={{ fontSize: 12 }}>
+                    <Hash size={14} /> SKU
+                  </p>
+                  <p style={{ fontSize: 14, fontWeight: 600 }}>{product.sku || "No disponible"}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-gray-50 p-3">
+                  <p className="text-muted-foreground flex items-center gap-2" style={{ fontSize: 12 }}>
+                    <CalendarDays size={14} /> Publicado
+                  </p>
+                  <p style={{ fontSize: 14, fontWeight: 600 }}>{formatDate(product.publicationDate)}</p>
+                </div>
+              </div>
+
               <div className="flex items-baseline gap-3 mb-4">
                 <span className="text-primary" style={{ fontSize: 32, fontWeight: 700 }}>
-                  ${product.price.toFixed(2)}
+                  ${(Number(product.price) || 0).toFixed(2)}
                 </span>
-                {product.originalPrice && (
+                {product.originalPrice != null && (
                   <>
                     <span className="text-muted-foreground line-through" style={{ fontSize: 18 }}>
-                      ${product.originalPrice.toFixed(2)}
+                      ${(Number(product.originalPrice) || 0).toFixed(2)}
                     </span>
                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded" style={{ fontSize: 13, fontWeight: 600 }}>
-                      -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+                      -{Math.round(((Number(product.originalPrice) - Number(product.price)) / Number(product.originalPrice)) * 100)}%
                     </span>
                   </>
                 )}
@@ -345,11 +399,22 @@ export function ProductDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
-                  <Package size={20} className="text-primary shrink-0" />
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 500 }}>Envio estimado: 3-5 dias habiles</p>
-                    <p className="text-muted-foreground" style={{ fontSize: 13 }}>Contexto: Fiestas</p>
+                <div className="space-y-3">
+                  <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
+                    <Package size={20} className="text-primary shrink-0" />
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 500 }}>Envio estimado: 3-5 dias habiles</p>
+                      <p className="text-muted-foreground" style={{ fontSize: 13 }}>Contexto: Fiestas</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-border p-4 flex items-start gap-3">
+                    <MapPin size={18} className="text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 600 }}>{product.branchName || "Sucursal principal"}</p>
+                      <p className="text-muted-foreground mt-1" style={{ fontSize: 13 }}>
+                        {product.branchAddress || "Ubicacion no disponible"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -407,8 +472,14 @@ export function ProductDetailPage() {
                       style={{ fontSize: 14 }}
                     />
                     <div className="flex gap-2 mt-3">
-                      <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg" style={{ fontSize: 14 }}>
-                        Enviar
+                      <button 
+                        type="submit" 
+                        disabled={isSubmittingReview}
+                        className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2 disabled:opacity-50" 
+                        style={{ fontSize: 14 }}
+                      >
+                        {isSubmittingReview && <Loader2 size={14} className="animate-spin" />}
+                        {isSubmittingReview ? "Enviando..." : "Enviar"}
                       </button>
                       <button
                         type="button"
@@ -433,7 +504,14 @@ export function ProductDetailPage() {
                             {review.userName[0]}
                           </div>
                           <div>
-                            <p style={{ fontSize: 14, fontWeight: 500 }}>{review.userName}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p style={{ fontSize: 14, fontWeight: 500 }}>{review.userName}</p>
+                              {review.verifiedPurchase && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-700" style={{ fontSize: 11, fontWeight: 600 }}>
+                                  <CheckCircle2 size={12} /> Compra verificada
+                                </span>
+                              )}
+                            </div>
                             <p className="text-muted-foreground" style={{ fontSize: 12 }}>{review.date}</p>
                           </div>
                         </div>
@@ -477,20 +555,20 @@ export function ProductDetailPage() {
                         <img src={p.image} alt={p.name} className="w-12 h-12 rounded object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="truncate" style={{ fontSize: 14 }}>{p.name}</p>
-                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>${p.price.toFixed(2)}</p>
+                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>${(Number(p.price) || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                   <div className="flex items-baseline gap-3 mb-3">
                     <span className="text-primary" style={{ fontSize: 24, fontWeight: 700 }}>
-                      ${bundle.bundlePrice.toFixed(2)}
+                      ${(Number(bundle.bundlePrice) || 0).toFixed(2)}
                     </span>
                     <span className="text-muted-foreground line-through" style={{ fontSize: 14 }}>
-                      ${bundle.originalTotal.toFixed(2)}
+                      ${(Number(bundle.originalTotal) || 0).toFixed(2)}
                     </span>
                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded" style={{ fontSize: 12, fontWeight: 600 }}>
-                      Ahorras ${(bundle.originalTotal - bundle.bundlePrice).toFixed(2)}
+                      Ahorras ${((Number(bundle.originalTotal) || 0) - (Number(bundle.bundlePrice) || 0)).toFixed(2)}
                     </span>
                   </div>
                   <button
@@ -527,7 +605,7 @@ export function ProductDetailPage() {
                   </div>
                   <div className="p-3">
                     <p className="truncate" style={{ fontSize: 14 }}>{p.name}</p>
-                    <p className="text-primary mt-1" style={{ fontSize: 16, fontWeight: 600 }}>${p.price.toFixed(2)}</p>
+                    <p className="text-primary mt-1" style={{ fontSize: 16, fontWeight: 600 }}>${(Number(p.price) || 0).toFixed(2)}</p>
                   </div>
                 </Link>
               ))}

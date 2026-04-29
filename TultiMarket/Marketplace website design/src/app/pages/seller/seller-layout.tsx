@@ -1,4 +1,4 @@
-import { Package, Boxes, Gift, ClipboardList, BarChart3, User, Calendar, Wrench } from "lucide-react";
+import { Package, Boxes, Gift, ClipboardList, BarChart3, User, Calendar, Wrench, Tag } from "lucide-react";
 import { DashboardLayout } from "../../components/layout/dashboard-layout";
 import { useStore } from "../../context/store-context";
 import { SetupBusiness } from "./setup-business";
@@ -15,6 +15,7 @@ export function SellerLayout() {
     { label: "Pedidos", path: "/vendedor/pedidos", icon: <ClipboardList size={18} /> },
     { label: "Ventas", path: "/vendedor/ventas", icon: <BarChart3 size={18} /> },
     { label: "Mi Agenda", path: "/vendedor/agenda", icon: <Calendar size={18} /> },
+    { label: "Categorias", path: "/vendedor/categorias", icon: <Tag size={18} /> },
     { label: "Mi Perfil", path: "/perfil", icon: <User size={18} /> },
   ];
 

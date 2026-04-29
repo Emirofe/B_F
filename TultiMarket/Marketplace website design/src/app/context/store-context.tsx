@@ -106,20 +106,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           id: String(item.id_producto ?? item.id_servicio ?? 0),
           name: item.nombre,
           description: "",
-          price: item.precio_unitario,
+          price: Number(item.precio_unitario) || 0,
           image: item.imagen ?? "https://placehold.co/400x400?text=Sin+Imagen",
           images: [],
           category: "general",
           rating: 0,
           reviewCount: 0,
-          stock: item.stock_maximo > 0 ? item.stock_maximo : (item.tipo_item === "servicio" ? 99 : 0),
+          stock: Number(item.stock_maximo) > 0 ? Number(item.stock_maximo) : (item.tipo_item === "servicio" ? 99 : 0),
           sellerId: "0",
           sellerName: item.empresa,
           reviews: [],
           type: item.tipo_item,
           status: "Aprobado" as const,
         },
-        quantity: item.cantidad,
+        quantity: Number(item.cantidad) || 1,
       }));
       setCart(newCart);
     } catch {
@@ -338,7 +338,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser]);
 
   const getCartTotal = useCallback(() => {
-    return cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cart.reduce((sum, item) => sum + (Number(item.product.price) || 0) * (Number(item.quantity) || 0), 0);
   }, [cart]);
 
   const getCartCount = useCallback(() => {
@@ -408,7 +408,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const newOrder: Order = {
         id: String(result.pedido.id),
         folio: `ORD-${result.pedido.id}`,
-        date: result.pedido.fecha_creacion?.split("T")[0] ?? new Date().toISOString().split("T")[0],
+        date: result.pedido.fecha_pedido
+          ? new Date(result.pedido.fecha_pedido).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
         items: [...cart],
         total: result.pedido.total,
         status: "En preparacion",

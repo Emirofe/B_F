@@ -275,6 +275,28 @@ export async function getServicioDetalleApi(id: number): Promise<Product> {
   return mapServicioDetalle(data.servicio);
 }
 
+/**
+ * POST /comprador/resenas
+ * Crea una reseña para un producto o servicio.
+ * Requiere sesión activa.
+ */
+export async function createReviewApi(
+  tipo: "producto" | "servicio",
+  idItem: number,
+  calificacion: number,
+  comentario: string
+) {
+  return api<{ mensaje: string; resena: any }>("/comprador/resenas", {
+    method: "POST",
+    body: JSON.stringify({
+      tipo,
+      id_item: idItem,
+      calificacion,
+      comentario,
+    }),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CUENTA (requiere sesión activa)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -598,7 +620,7 @@ export async function vaciarCarritoApi() {
 export async function checkoutApi(idDireccion?: number, idMetodoPago?: number) {
   return api<{
     mensaje: string;
-    pedido: { id: number; total: number; estado_pedido: string; fecha_creacion: string };
+    pedido: { id: number; total: number; estado_pedido: string; fecha_pedido: string };
   }>("/comprador/carrito/checkout", {
     method: "POST",
     body: JSON.stringify({
@@ -606,6 +628,73 @@ export async function checkoutApi(idDireccion?: number, idMetodoPago?: number) {
       id_metodo_pago: idMetodoPago ?? null,
     }),
   });
+}
+
+/**
+ * GET /comprador/mis-pedidos
+ * Historial de pedidos del comprador autenticado.
+ * Devuelve pedidos con items, total, estado, snapshots de dirección y método de pago.
+ */
+export async function getPedidosCompradorApi(): Promise<Order[]> {
+  const data = await api<{
+    status: string;
+    pedidos: Array<{
+      id: number;
+      folio: string;
+      fecha: string;
+      total: number;
+      estado: string;
+      direccion: any;
+      metodo_pago: any;
+      items: Array<{
+        id: number;
+        tipo: string;
+        nombre: string;
+        cantidad: number;
+        precio: number;
+        subtotal: number;
+        imagen: string | null;
+      }>;
+    }>;
+  }>("/comprador/mis-pedidos");
+
+  return data.pedidos.map((p) => ({
+    id: String(p.id),
+    folio: p.folio,
+    date: p.fecha
+      ? new Date(p.fecha).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
+    total: Number(p.total) || 0,
+    status: p.estado ?? "Pendiente",
+    buyerName: "",
+    buyerId: "",
+    address: p.direccion
+      ? `${p.direccion.calle ?? ""}, ${p.direccion.ciudad ?? ""}, ${p.direccion.estado ?? ""} ${p.direccion.codigo_postal ?? ""}, ${p.direccion.pais ?? ""}`
+      : "",
+    paymentMethod: p.metodo_pago
+      ? `${p.metodo_pago.proveedor_pago ?? "Tarjeta"} ****${p.metodo_pago.ultimos_cuatro ?? ""}`
+      : undefined,
+    items: p.items.map((item) => ({
+      product: {
+        id: String(item.id),
+        name: item.nombre,
+        description: "",
+        price: Number(item.precio) || 0,
+        image: item.imagen ?? "https://placehold.co/400x400?text=Producto",
+        images: [],
+        category: "general",
+        rating: 0,
+        reviewCount: 0,
+        stock: 0,
+        sellerId: "0",
+        sellerName: "",
+        reviews: [],
+        type: item.tipo as "producto" | "servicio",
+        status: "Aprobado" as const,
+      },
+      quantity: Number(item.cantidad) || 1,
+    })),
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -887,6 +976,103 @@ export async function createNegocioVendedorApi(datos: {
     method: "POST",
     body: JSON.stringify(datos),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: PEDIDOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/pedidos
+ * Lista todos los pedidos del sistema (vista global admin).
+ */
+export async function getPedidosAdminApi(): Promise<Order[]> {
+  const data = await api<{ pedidos: RawPedido[] }>("/admin/pedidos");
+  return data.pedidos.map(mapPedidoVendedor);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: CATEGORÍAS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/categorias
+ * Lista todas las categorías del sistema.
+ */
+export async function getCategoriasAdminApi() {
+  return api<{
+    status: string;
+    total: number;
+    categorias: Array<{ id: number; nombre_categoria: string; tipo: string }>;
+  }>("/admin/categorias");
+}
+
+/**
+ * POST /admin/categorias
+ * Crea una nueva categoría.
+ */
+export async function createCategoriaAdminApi(datos: {
+  nombre_categoria: string;
+  tipo: string;
+}) {
+  return api<{ status: string; mensaje: string; data: any }>("/admin/categorias", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+/**
+ * PUT /admin/categorias/:id
+ * Actualiza una categoría existente.
+ */
+export async function updateCategoriaAdminApi(
+  id: number,
+  datos: { nombre_categoria: string; tipo: string }
+) {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/categorias/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(datos),
+  });
+}
+
+/**
+ * DELETE /admin/categorias/:id
+ * Elimina una categoría.
+ */
+export async function deleteCategoriaAdminApi(id: number) {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/categorias/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDEDOR: CATEGORÍAS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/vendedor/categorias
+ * Crea una categoría nueva desde el panel vendedor.
+ */
+export async function createCategoriaVendedorApi(datos: {
+  nombre_categoria: string;
+  tipo: string;
+  descripcion?: string;
+  id_padre?: number;
+}) {
+  return api<{ mensaje: string; categoria: any }>("/api/vendedor/categorias", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+/**
+ * GET /api/vendedor/categorias/check
+ * Verifica si ya existe una categoría con ese nombre y tipo.
+ */
+export async function checkCategoriaUniquenessApi(nombre: string, tipo: string) {
+  return api<{ exists: boolean }>(
+    `/api/vendedor/categorias/check?nombre=${encodeURIComponent(nombre)}&tipo=${encodeURIComponent(tipo)}`
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
