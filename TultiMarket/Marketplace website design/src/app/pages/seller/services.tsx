@@ -6,6 +6,7 @@ import {
   updateServicioVendedorApi,
   deleteServicioVendedorApi,
   getCategoriasApi,
+  updateServicioCategoriasVendedorApi,
 } from "../../api/api-client";
 import { useStore } from "../../context/store-context";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ interface SellerService {
   calificacion: number | null;
   esta_activo: boolean;
   fecha_registro: string;
+  id_categoria?: number | null;
   imagen_principal?: string | null;
 }
 
@@ -105,12 +107,7 @@ export function SellerServicesPage() {
         });
         // Actualizar categorías
         if (categoriasIds.length > 0) {
-          await fetch(`http://localhost:3000/api/vendedor/servicios/${editingId}/categorias`, {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_categorias: categoriasIds }),
-          });
+          await updateServicioCategoriasVendedorApi(editingId, categoriasIds);
         }
         toast.success("Servicio actualizado");
       } else {
@@ -142,7 +139,7 @@ export function SellerServicesPage() {
       description: service.descripcion ?? "",
       price: String(service.precio_base),
       duration: service.duracion_minutos ? String(service.duracion_minutos) : "",
-      category: dbCategories[0]?.id || "",
+      category: service.id_categoria ? String(service.id_categoria) : dbCategories[0]?.id || "",
     });
     setShowForm(true);
   };

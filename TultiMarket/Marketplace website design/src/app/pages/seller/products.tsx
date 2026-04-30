@@ -6,6 +6,7 @@ import {
   updateProductoVendedorApi,
   deleteProductoVendedorApi,
   getCategoriasApi,
+  updateProductoCategoriasVendedorApi,
 } from "../../api/api-client";
 import { useStore } from "../../context/store-context";
 import { toast } from "sonner";
@@ -31,6 +32,8 @@ interface SellerProduct {
   sku: string | null;
   esta_activo: boolean;
   fecha_registro: string;
+  id_categoria?: number | null;
+  imagen_principal?: string | null;
 }
 
 export function SellerProductsPage() {
@@ -110,12 +113,7 @@ export function SellerProductsPage() {
         });
         // Actualizar categorías por separado si se proporcionó
         if (categoriasIds.length > 0) {
-          await fetch(`http://localhost:3000/api/vendedor/productos/${editingId}/categorias`, {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_categorias: categoriasIds }),
-          });
+          await updateProductoCategoriasVendedorApi(editingId, categoriasIds);
         }
         toast.success("Producto actualizado");
       } else {
@@ -149,7 +147,7 @@ export function SellerProductsPage() {
       description: product.descripcion ?? "",
       price: String(product.precio),
       stock: String(product.stock_total),
-      category: "cumpleanos",
+      category: product.id_categoria ? String(product.id_categoria) : dbCategories[0]?.id || "",
       sku: product.sku ?? "",
     });
     setShowForm(true);

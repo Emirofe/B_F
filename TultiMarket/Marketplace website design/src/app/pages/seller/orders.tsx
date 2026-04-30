@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, Calendar, Filter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  getPedidosVendedorRawApi,
+  updateEstadoPedidoVendedorApi,
+  type VendedorPedido,
+} from "../../api/api-client";
 
 interface OrderItem {
   id: number;
@@ -11,16 +16,7 @@ interface OrderItem {
   subtotal: number;
 }
 
-interface VendorOrder {
-  id: number;
-  folio: string;
-  date: string;
-  buyerName: string;
-  buyerEmail: string;
-  buyerPhone: string | null;
-  total: number;
-  status: string;
-  address: any;
+interface VendorOrder extends VendedorPedido {
   items: OrderItem[];
 }
 
@@ -33,13 +29,8 @@ export function SellerOrdersPage() {
   // ─── Cargar pedidos del backend ────────────────────────────────────────────
   useEffect(() => {
     setIsLoading(true);
-    fetch("http://localhost:3000/api/vendedor/pedidos", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.status === "success") {
-          setOrders(data.pedidos || []);
-        }
-      })
+    getPedidosVendedorRawApi()
+      .then((pedidos) => setOrders(pedidos))
       .catch((err) => {
         console.error("Error al cargar pedidos:", err);
         toast.error("Error al cargar pedidos");
@@ -53,22 +44,11 @@ export function SellerOrdersPage() {
 
   const updateStatus = async (orderId: number, newStatus: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/vendedor/pedidos/${orderId}/estado`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: newStatus }),
-      });
-      const data = await res.json();
-
-      if (data.status === "success") {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus.toUpperCase() } : o))
-        );
-        toast.success(`Pedido actualizado a: ${newStatus}`);
-      } else {
-        toast.error(data.mensaje || "Error al actualizar estado");
-      }
+      await updateEstadoPedidoVendedorApi(orderId, newStatus as any);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus.toUpperCase() } : o))
+      );
+      toast.success(`Pedido actualizado a: ${newStatus}`);
     } catch (error) {
       toast.error("Error de conexión al actualizar estado");
     }

@@ -170,8 +170,10 @@ export async function logoutApi(): Promise<void> {
  *
  * No requiere sesión.
  */
-export async function getCategoriasApi() {
-  const data = await api<RawCategoria[]>("/comprador/categorias");
+export async function getCategoriasApi(tipo?: "producto" | "servicio" | "ambos") {
+  const query = tipo ? `?tipo=${encodeURIComponent(tipo)}` : "";
+  const endpoint = tipo ? `/api/vendedor/categorias${query}` : "/comprador/categorias";
+  const data = await api<RawCategoria[]>(endpoint);
   return data.map(mapCategoria);
 }
 
@@ -851,6 +853,13 @@ export async function deleteProductoVendedorApi(id: number) {
   return api(`/api/vendedor/productos/${id}`, { method: "DELETE" });
 }
 
+export async function updateProductoCategoriasVendedorApi(id: number, idCategorias: number[]) {
+  return api(`/api/vendedor/productos/${id}/categorias`, {
+    method: "PUT",
+    body: JSON.stringify({ id_categorias: idCategorias }),
+  });
+}
+
 /**
  * Falta por invocar — Falta conectar en vendedor/services.tsx
  *
@@ -929,6 +938,63 @@ export async function updateServicioVendedorApi(
  */
 export async function deleteServicioVendedorApi(id: number) {
   return api(`/api/vendedor/servicios/${id}`, { method: "DELETE" });
+}
+
+export async function updateServicioCategoriasVendedorApi(id: number, idCategorias: number[]) {
+  return api(`/api/vendedor/servicios/${id}/categorias`, {
+    method: "PUT",
+    body: JSON.stringify({ id_categorias: idCategorias }),
+  });
+}
+
+export type VendedorPedidoItem = {
+  id: number;
+  type: "producto" | "servicio";
+  name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  snapshot?: unknown;
+};
+
+export type VendedorPedido = {
+  id: number;
+  folio: string;
+  date: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string | null;
+  total: number;
+  status: string;
+  address: unknown;
+  items: VendedorPedidoItem[];
+};
+
+export async function getPedidosVendedorRawApi(): Promise<VendedorPedido[]> {
+  const data = await api<{ status: string; pedidos: VendedorPedido[] }>("/api/vendedor/pedidos");
+  return data.pedidos;
+}
+
+export async function updateEstadoPedidoVendedorApi(
+  pedidoId: number,
+  estado: "PENDIENTE" | "EN PREPARACION" | "ENVIADO" | "ENTREGADO" | "CANCELADO"
+) {
+  return api<{ status: string; mensaje: string }>(`/api/vendedor/pedidos/${pedidoId}/estado`, {
+    method: "PUT",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+export async function getEstadisticasVendedorRawApi() {
+  return api<{
+    status: string;
+    estadisticas: {
+      por_estado: Array<{ estado_pedido: string; cantidad: string; total_ventas: string }>;
+      ventas_mensuales: Array<{ mes: string; cantidad_pedidos: string; total_ventas: string }>;
+      total_pedidos: number;
+      total_ventas: number;
+    };
+  }>("/api/vendedor/pedidos/estadisticas");
 }
 
 /**

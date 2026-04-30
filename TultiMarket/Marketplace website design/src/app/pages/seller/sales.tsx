@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { DollarSign, ShoppingBag, TrendingUp, Loader2 } from "lucide-react";
+import { getEstadisticasVendedorRawApi } from "../../api/api-client";
 
 interface SalesData {
   mes: string;
@@ -23,8 +24,7 @@ export function SellerSalesPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:3000/api/vendedor/pedidos/estadisticas", { credentials: "include" })
-      .then((res) => res.json())
+    getEstadisticasVendedorRawApi()
       .then((data) => {
         if (data.status === "success") {
           const stats = data.estadisticas;
