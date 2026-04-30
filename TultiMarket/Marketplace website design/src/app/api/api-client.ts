@@ -986,6 +986,65 @@ export async function createNegocioVendedorApi(datos: {
  * GET /admin/pedidos
  * Lista todos los pedidos del sistema (vista global admin).
  */
+export type AdminCatalogItem = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  precio?: number;
+  precio_base?: number;
+  precio_con_descuento?: number | null;
+  id_descuento?: number | null;
+  stock_total?: number;
+  esta_activo: boolean;
+  estado_catalogo: "Aprobado" | "Rechazado" | string;
+  fecha_registro: string;
+  negocio: string;
+};
+
+export async function getAdminCatalogoProductosApi(): Promise<AdminCatalogItem[]> {
+  const data = await api<{
+    status: string;
+    total: number;
+    productos: AdminCatalogItem[];
+  }>("/admin/catalogo/productos");
+  return data.productos;
+}
+
+export async function getAdminCatalogoServiciosApi(): Promise<AdminCatalogItem[]> {
+  const data = await api<{
+    status: string;
+    total: number;
+    servicios: AdminCatalogItem[];
+  }>("/admin/catalogo/servicios");
+  return data.servicios;
+}
+
+export async function updateAdminEstadoProductoApi(
+  id: number,
+  estado: "APROBADO" | "RECHAZADO"
+) {
+  return api<{ status: string; mensaje: string; data: AdminCatalogItem }>(
+    `/admin/catalogo/productos/${id}/estado`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    }
+  );
+}
+
+export async function updateAdminEstadoServicioApi(
+  id: number,
+  estado: "APROBADO" | "RECHAZADO"
+) {
+  return api<{ status: string; mensaje: string; data: AdminCatalogItem }>(
+    `/admin/catalogo/servicios/${id}/estado`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    }
+  );
+}
+
 export async function getPedidosAdminApi(): Promise<Order[]> {
   const data = await api<{ pedidos: RawPedido[] }>("/admin/pedidos");
   return data.pedidos.map(mapPedidoVendedor);
