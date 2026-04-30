@@ -119,7 +119,7 @@ export async function registerApi(
   password: string,
   rol: "comprador" | "vendedor" = "comprador"
 ): Promise<User> {
-  const id_rol = rol === "vendedor" ? 2 : 1;
+  const id_rol = rol === "vendedor" ? 3 : 2;
   const data = await api<{
     usuario: { id: number; nombre: string; email: string };
   }>("/registrar", {
