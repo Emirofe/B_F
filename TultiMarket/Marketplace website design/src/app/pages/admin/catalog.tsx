@@ -75,7 +75,7 @@ export function AdminCatalogPage() {
     <>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600 }}>Moderacion de Catalogo</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 600 }}>Gestión de Catálogo</h1>
           <p className="text-muted-foreground mt-1" style={{ fontSize: 14 }}>
             Revisa y aprueba productos o servicios subidos por los vendedores (RF-44, RF-46)
           </p>
