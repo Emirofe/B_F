@@ -19,7 +19,8 @@ import type {
 } from "../data/mock-data";
 
 // ─── URL base del servidor de backend ────────────────────────────────────────
-const API_BASE = "http://localhost:3000";
+const API_HOST = typeof window !== "undefined" ? window.location.hostname : "localhost";
+const API_BASE = `http://${API_HOST}:3000`;
 
 /** Convierte la imagen_principal relativa del back en una URL completa. */
 function toImageUrl(path: string | null | undefined): string {

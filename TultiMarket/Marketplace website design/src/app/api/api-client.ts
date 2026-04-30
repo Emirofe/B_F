@@ -32,8 +32,10 @@ import {
 
 import type { Product, User, Address, PaymentMethod, Order } from "../data/mock-data";
 
-// URL base del backend
-const BASE_URL = "http://localhost:3000";
+// URL base del backend. Usa el mismo hostname del frontend para que la cookie
+// de sesion no se pierda entre localhost y 127.0.0.1.
+const API_HOST = typeof window !== "undefined" ? window.location.hostname : "localhost";
+const BASE_URL = `http://${API_HOST}:3000`;
 
 // ─── Helper: fetch con credentials incluidas ─────────────────────────────────
 async function api<T>(
