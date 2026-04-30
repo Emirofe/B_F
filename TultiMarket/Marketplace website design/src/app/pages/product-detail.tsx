@@ -13,11 +13,11 @@ import {
   MapPin,
   Package,
   Loader2,
-  CheckCircle2,
-  CalendarDays,
   Hash,
+  CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
-import { products as mockProducts, mockBundles, type Product } from "../data/mock-data";
+import { type Product } from "../data/mock-data";
 import { getProductoDetalleApi, getServicioDetalleApi, createReviewApi } from "../api/api-client";
 import { StarRating } from "../components/star-rating";
 import { useStore } from "../context/store-context";
@@ -114,10 +114,9 @@ export function ProductDetailPage() {
   }
 
   const inWishlist = isInWishlist(product.id);
-  const sellerBundles = mockBundles.filter((b) => b.sellerId === product.sellerId);
-  const relatedProducts = mockProducts
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
+  // TODO: Agregar endpoint de productos relacionados / bundles en el backend
+  const sellerBundles: any[] = [];
+  const relatedProducts: Product[] = [];
 
   const handleAddToCart = () => {
     if (isService) {
@@ -269,15 +268,15 @@ export function ProductDetailPage() {
 
               <div className="flex items-baseline gap-3 mb-4">
                 <span className="text-primary" style={{ fontSize: 32, fontWeight: 700 }}>
-                  ${product.price.toFixed(2)}
+                  ${(Number(product.price) || 0).toFixed(2)}
                 </span>
-                {product.originalPrice && (
+                {product.originalPrice != null && (
                   <>
                     <span className="text-muted-foreground line-through" style={{ fontSize: 18 }}>
-                      ${product.originalPrice.toFixed(2)}
+                      ${(Number(product.originalPrice) || 0).toFixed(2)}
                     </span>
                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded" style={{ fontSize: 13, fontWeight: 600 }}>
-                      -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+                      -{Math.round(((Number(product.originalPrice) - Number(product.price)) / Number(product.originalPrice)) * 100)}%
                     </span>
                   </>
                 )}
@@ -504,7 +503,7 @@ export function ProductDetailPage() {
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary" style={{ fontSize: 14, fontWeight: 600 }}>
                             {review.userName[0]}
                           </div>
-                        <div>
+                          <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <p style={{ fontSize: 14, fontWeight: 500 }}>{review.userName}</p>
                               {review.verifiedPurchase && (
@@ -556,20 +555,20 @@ export function ProductDetailPage() {
                         <img src={p.image} alt={p.name} className="w-12 h-12 rounded object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="truncate" style={{ fontSize: 14 }}>{p.name}</p>
-                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>${p.price.toFixed(2)}</p>
+                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>${(Number(p.price) || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                   <div className="flex items-baseline gap-3 mb-3">
                     <span className="text-primary" style={{ fontSize: 24, fontWeight: 700 }}>
-                      ${bundle.bundlePrice.toFixed(2)}
+                      ${(Number(bundle.bundlePrice) || 0).toFixed(2)}
                     </span>
                     <span className="text-muted-foreground line-through" style={{ fontSize: 14 }}>
-                      ${bundle.originalTotal.toFixed(2)}
+                      ${(Number(bundle.originalTotal) || 0).toFixed(2)}
                     </span>
                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded" style={{ fontSize: 12, fontWeight: 600 }}>
-                      Ahorras ${(bundle.originalTotal - bundle.bundlePrice).toFixed(2)}
+                      Ahorras ${((Number(bundle.originalTotal) || 0) - (Number(bundle.bundlePrice) || 0)).toFixed(2)}
                     </span>
                   </div>
                   <button
@@ -606,7 +605,7 @@ export function ProductDetailPage() {
                   </div>
                   <div className="p-3">
                     <p className="truncate" style={{ fontSize: 14 }}>{p.name}</p>
-                    <p className="text-primary mt-1" style={{ fontSize: 16, fontWeight: 600 }}>${p.price.toFixed(2)}</p>
+                    <p className="text-primary mt-1" style={{ fontSize: 16, fontWeight: 600 }}>${(Number(p.price) || 0).toFixed(2)}</p>
                   </div>
                 </Link>
               ))}

@@ -8,15 +8,17 @@ import { Order, mockDiscounts } from "../data/mock-data";
 import { Tag, X } from "lucide-react";
 
 export function CheckoutPage() {
-  const { cart, getCartTotal, addresses, placeOrder } = useStore();
+  const { cart, getCartTotal, addresses, paymentMethods, placeOrder } = useStore();
   const [selectedAddress, setSelectedAddress] = useState(addresses[0]?.id || "");
+  const [selectedPayment, setSelectedPayment] = useState(paymentMethods[0]?.id || "");
   const [step, setStep] = useState<"confirm" | "success">("confirm");
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string, percentage: number } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   
-  const subtotal = getCartTotal();
+  const subtotal = Number(getCartTotal()) || 0;
   const discountAmount = appliedDiscount ? (subtotal * appliedDiscount.percentage) / 100 : 0;
   const total = subtotal - discountAmount;
 
@@ -45,14 +47,31 @@ export function CheckoutPage() {
     }
   };
 
-  const handleConfirmOrder = () => {
-    const addr = addresses.find((a) => a.id === selectedAddress);
-    const addressStr = addr
-      ? `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}, ${addr.country}`
-      : "Av. Reforma 123, CDMX, Mexico";
-    const order = placeOrder(addressStr);
-    setCompletedOrder(order);
-    setStep("success");
+  const handleConfirmOrder = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const addr = addresses.find((a) => a.id === selectedAddress);
+      const addressStr = addr
+        ? `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}, ${addr.country}`
+        : "Av. Reforma 123, CDMX, Mexico";
+      const addrNumId = selectedAddress ? Number(selectedAddress) : undefined;
+      const payNumId = selectedPayment ? Number(selectedPayment) : undefined;
+      const order = await placeOrder(addressStr, addrNumId, payNumId);
+      // Enrich order with payment method info for receipt
+      const pm = paymentMethods.find((m) => m.id === selectedPayment);
+      if (pm) {
+        order.paymentMethod = `${pm.provider ?? pm.type ?? "Tarjeta"} ****${pm.lastFour ?? ""}`;
+      }
+      setCompletedOrder(order);
+      setStep("success");
+    } catch (error: any) {
+      console.error("Error al confirmar pedido:", error);
+      const msg = error?.message || "Error desconocido";
+      alert(`Error al procesar tu pedido: ${msg}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const stepper = [
@@ -101,7 +120,7 @@ export function CheckoutPage() {
                         <p className="truncate" style={{ fontSize: 14, fontWeight: 500 }}>{item.product.name}</p>
                         <p className="text-muted-foreground" style={{ fontSize: 13 }}>Cant: {item.quantity}</p>
                       </div>
-                      <p style={{ fontSize: 15, fontWeight: 600 }}>${(item.product.price * item.quantity).toFixed(2)}</p>
+                      <p style={{ fontSize: 15, fontWeight: 600 }}>${((Number(item.product.price) || 0) * item.quantity).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
@@ -137,6 +156,50 @@ export function CheckoutPage() {
                           <p className="text-muted-foreground" style={{ fontSize: 14 }}>
                             {addr.street}, {addr.city}, {addr.state} {addr.zip}, {addr.country}
                           </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment method selection */}
+              <div className="bg-white rounded-xl border border-border p-6 mt-4">
+                <h3 className="mb-4" style={{ fontSize: 18, fontWeight: 600 }}>Método de Pago</h3>
+                {paymentMethods.length === 0 ? (
+                  <p className="text-muted-foreground" style={{ fontSize: 14 }}>
+                    No tienes métodos de pago guardados.{" "}
+                    <Link to="/perfil" className="text-primary hover:underline">Agregar uno</Link>
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {paymentMethods.map((pm) => (
+                      <label
+                        key={pm.id}
+                        className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                          selectedPayment === pm.id ? "border-primary bg-primary/5" : "border-border hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment"
+                          value={pm.id}
+                          checked={selectedPayment === pm.id}
+                          onChange={() => setSelectedPayment(pm.id)}
+                          className="mt-1 accent-[#065F46]"
+                        />
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={20} className="text-muted-foreground" />
+                          <div>
+                            <p style={{ fontSize: 14, fontWeight: 500 }}>
+                              {pm.provider ?? pm.type ?? "Tarjeta"} ****{pm.lastFour ?? ""}
+                            </p>
+                            {pm.expiry && (
+                              <p className="text-muted-foreground" style={{ fontSize: 12 }}>
+                                Vence: {pm.expiry}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -207,51 +270,120 @@ export function CheckoutPage() {
                 </p>
                 <button
                   onClick={handleConfirmOrder}
-                  className="w-full bg-primary text-white py-3.5 rounded-xl hover:bg-primary/90 transition-colors"
+                  disabled={isProcessing}
+                  className={`w-full text-white py-3.5 rounded-xl transition-colors ${
+                    isProcessing ? "bg-gray-400 cursor-not-allowed" : "bg-primary hover:bg-primary/90"
+                  }`}
                   style={{ fontSize: 16, fontWeight: 600 }}
                 >
-                  Confirmar Pedido
+                  {isProcessing ? "Procesando..." : "Confirmar Pedido"}
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          /* Success state */
-          <div className="text-center py-12 bg-white rounded-2xl border border-border max-w-lg mx-auto">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={48} className="text-green-600" />
+          /* Success state — Recibo completo */
+          <div className="py-8 bg-white rounded-2xl border border-border max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={48} className="text-green-600" />
+              </div>
+              <h2 className="mb-2" style={{ fontSize: 28, fontWeight: 700 }}>¡Pedido Confirmado!</h2>
+              <p className="text-muted-foreground" style={{ fontSize: 16 }}>
+                Gracias por tu compra
+              </p>
             </div>
-            <h2 className="mb-2" style={{ fontSize: 28, fontWeight: 700 }}>Pedido Confirmado!</h2>
-            <p className="text-muted-foreground mb-6" style={{ fontSize: 16 }}>
-              Gracias por tu compra
-            </p>
             {completedOrder && (
-              <div className="bg-gray-50 rounded-xl p-6 mx-6 mb-6 text-left">
-                <div className="grid grid-cols-2 gap-4" style={{ fontSize: 14 }}>
-                  <div>
-                    <p className="text-muted-foreground">Folio</p>
-                    <p style={{ fontWeight: 600 }}>{completedOrder.folio}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Fecha</p>
-                    <p style={{ fontWeight: 600 }}>{completedOrder.date}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total</p>
-                    <p className="text-primary" style={{ fontWeight: 600 }}>${completedOrder.total.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Estado</p>
-                    <p className="text-amber-600" style={{ fontWeight: 600 }}>{completedOrder.status}</p>
+              <div className="px-6 md:px-10">
+                {/* Datos generales del pedido */}
+                <div className="bg-gray-50 rounded-xl p-6 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ fontSize: 14 }}>
+                    <div>
+                      <p className="text-muted-foreground">Folio</p>
+                      <p style={{ fontWeight: 600 }}>{completedOrder.folio}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Fecha</p>
+                      <p style={{ fontWeight: 600 }}>{completedOrder.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Estado</p>
+                      <p className="text-amber-600" style={{ fontWeight: 600 }}>{completedOrder.status}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Total</p>
+                      <p className="text-primary" style={{ fontWeight: 700, fontSize: 18 }}>
+                        ${(Number(completedOrder.total) || 0).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-muted-foreground mb-1" style={{ fontSize: 13 }}>Direccion de envio:</p>
-                  <p style={{ fontSize: 14 }}>{completedOrder.address}</p>
+
+                {/* Items comprados */}
+                {completedOrder.items.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="mb-3" style={{ fontSize: 16, fontWeight: 600 }}>Productos Comprados</h3>
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <table className="w-full" style={{ fontSize: 14 }}>
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left px-4 py-3 text-muted-foreground font-medium">Producto</th>
+                            <th className="text-center px-4 py-3 text-muted-foreground font-medium">Cant.</th>
+                            <th className="text-right px-4 py-3 text-muted-foreground font-medium">P. Unit.</th>
+                            <th className="text-right px-4 py-3 text-muted-foreground font-medium">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {completedOrder.items.map((item, idx) => (
+                            <tr key={idx} className="border-t border-border">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <img src={item.product.image} alt={item.product.name} className="w-10 h-10 rounded object-cover" />
+                                  <span className="truncate max-w-[200px]">{item.product.name}</span>
+                                </div>
+                              </td>
+                              <td className="text-center px-4 py-3">{item.quantity}</td>
+                              <td className="text-right px-4 py-3">${(Number(item.product.price) || 0).toFixed(2)}</td>
+                              <td className="text-right px-4 py-3" style={{ fontWeight: 600 }}>
+                                ${((Number(item.product.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Método de pago y dirección */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {completedOrder.paymentMethod && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-muted-foreground mb-1" style={{ fontSize: 13 }}>Método de Pago</p>
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={18} className="text-muted-foreground" />
+                        <p style={{ fontSize: 14, fontWeight: 500 }}>{completedOrder.paymentMethod}</p>
+                      </div>
+                    </div>
+                  )}
+                  {completedOrder.address && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-muted-foreground mb-1" style={{ fontSize: 13 }}>Dirección de Envío</p>
+                      <p style={{ fontSize: 14 }}>{completedOrder.address}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total final */}
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex justify-between items-center mb-6">
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>Total Pagado</span>
+                  <span className="text-primary" style={{ fontSize: 28, fontWeight: 700 }}>
+                    ${(Number(completedOrder.total) || 0).toFixed(2)}
+                  </span>
                 </div>
               </div>
             )}
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center px-6">
               <Link
                 to="/pedidos"
                 className="px-6 py-3 border-2 border-primary text-primary rounded-xl hover:bg-primary/5 transition-colors"

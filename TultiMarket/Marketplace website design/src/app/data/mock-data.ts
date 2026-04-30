@@ -19,11 +19,15 @@ export interface Product {
   availability?: string;
   location?: string;
   status?: "Aprobado" | "En revision" | "Rechazado";
+  // Campos añadidos para Features 4-5 (galería, sucursal)
   sku?: string;
   publicationDate?: string;
   branchName?: string;
   branchAddress?: string;
   businessId?: string;
+  // Campos para descuentos reales de BD
+  originalPrice?: number;
+  discountPercent?: number;
 }
 
 export interface Review {
@@ -50,10 +54,11 @@ export interface Order {
   date: string;
   items: CartItem[];
   total: number;
-  status: "En preparacion" | "Enviado" | "Entregado";
+  status: string;
   buyerName: string;
   buyerId: string;
   address: string;
+  paymentMethod?: string;
 }
 
 export interface User {
@@ -165,8 +170,8 @@ export const products: Product[] = [
     sellerId: "s1",
     sellerName: "FiestaMax",
     reviews: [
-      { id: "r1", userId: "u1", userName: "Maria G.", rating: 5, comment: "Excelente calidad, todo llego completo y a tiempo.", date: "2026-02-15", verifiedPurchase: true },
-      { id: "r2", userId: "u2", userName: "Carlos R.", rating: 4, comment: "Muy bonitos los globos, el banner es de buena calidad.", date: "2026-02-10", verifiedPurchase: true },
+      { id: "r1", userId: "u1", userName: "Maria G.", rating: 5, comment: "Excelente calidad, todo llego completo y a tiempo.", date: "2026-02-15" },
+      { id: "r2", userId: "u2", userName: "Carlos R.", rating: 4, comment: "Muy bonitos los globos, el banner es de buena calidad.", date: "2026-02-10" },
     ],
     type: "producto",
     status: "Aprobado"
@@ -187,7 +192,7 @@ export const products: Product[] = [
     sellerId: "s1",
     sellerName: "FiestaMax",
     reviews: [
-      { id: "r3", userId: "u3", userName: "Ana L.", rating: 4, comment: "Buenos globos, colores vibrantes.", date: "2026-01-28", verifiedPurchase: true },
+      { id: "r3", userId: "u3", userName: "Ana L.", rating: 4, comment: "Buenos globos, colores vibrantes.", date: "2026-01-28" },
     ],
     type: "producto",
     status: "Aprobado"
@@ -209,7 +214,7 @@ export const products: Product[] = [
     sellerId: "s2",
     sellerName: "EventosPro",
     reviews: [
-      { id: "r4", userId: "u4", userName: "Sofia M.", rating: 5, comment: "Hermoso, se ve como flores reales. Perfecto para mi boda.", date: "2026-02-20", verifiedPurchase: true },
+      { id: "r4", userId: "u4", userName: "Sofia M.", rating: 5, comment: "Hermoso, se ve como flores reales. Perfecto para mi boda.", date: "2026-02-20" },
     ],
   },
   {
@@ -228,7 +233,7 @@ export const products: Product[] = [
     sellerId: "s3",
     sellerName: "PinatasMX",
     reviews: [
-      { id: "r5", userId: "u5", userName: "Pedro H.", rating: 5, comment: "Muy resistente y colorida. Los ninos la amaron.", date: "2026-02-18", verifiedPurchase: true },
+      { id: "r5", userId: "u5", userName: "Pedro H.", rating: 5, comment: "Muy resistente y colorida. Los ninos la amaron.", date: "2026-02-18" },
     ],
   },
   {

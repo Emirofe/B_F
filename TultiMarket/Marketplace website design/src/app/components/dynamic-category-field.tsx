@@ -79,87 +79,88 @@ export function DynamicCategoryField({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex gap-2">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg border border-border bg-input-background"
+          className="flex-1 px-3 py-2 rounded-lg border border-border bg-gray-50 outline-none focus:border-primary"
           style={{ fontSize: 14 }}
         >
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
+          <option value="">Selecciona una categoria</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => setShowCreator((current) => !current)}
-          className="shrink-0 px-3 py-3 rounded-lg border border-border bg-white hover:bg-gray-50"
-          title="Crear categoria"
-        >
-          <Plus size={16} />
-        </button>
+
+        {!showCreator && (
+          <button
+            type="button"
+            onClick={() => setShowCreator(true)}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/5 transition-colors"
+            style={{ fontSize: 13, fontWeight: 500 }}
+          >
+            <Plus size={14} /> Crear
+          </button>
+        )}
       </div>
 
       {showCreator && (
-        <form onSubmit={handleCreate} className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
+        <form onSubmit={handleCreate} className="bg-gray-50 rounded-xl border border-border p-4 space-y-3">
           <div>
-            <label className="block mb-1 text-muted-foreground" style={{ fontSize: 12 }}>
-              Nueva categoria para {allowedType}
-            </label>
             <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Candy bar premium"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white"
+              placeholder="Nombre de la nueva categoria"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-white outline-none focus:border-primary"
               style={{ fontSize: 14 }}
+              autoFocus
             />
-            <div className="mt-2 flex items-center gap-2" style={{ fontSize: 12 }}>
-              {isNameValid ? (
-                <>
-                  <Check size={14} className="text-green-600" />
-                  <span className="text-green-700">Nombre disponible</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle size={14} className={duplicated ? "text-red-600" : "text-amber-600"} />
-                  <span className={duplicated ? "text-red-700" : "text-amber-700"}>
-                    {duplicated ? "Ya existe una categoria con ese nombre" : "Escribe al menos 3 caracteres"}
+            {name.trim().length > 0 && (
+              <div className="flex items-center gap-1 mt-1">
+                {isNameValid ? (
+                  <span className="text-green-600 flex items-center gap-1" style={{ fontSize: 12 }}>
+                    <Check size={12} /> Nombre disponible
                   </span>
-                </>
-              )}
-            </div>
+                ) : duplicated ? (
+                  <span className="text-red-500 flex items-center gap-1" style={{ fontSize: 12 }}>
+                    <AlertCircle size={12} /> Ya existe
+                  </span>
+                ) : (
+                  <span className="text-amber-500 flex items-center gap-1" style={{ fontSize: 12 }}>
+                    <AlertCircle size={12} /> Minimo 3 caracteres
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block mb-1 text-muted-foreground" style={{ fontSize: 12 }}>
-              Descripcion breve
-            </label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Opcional"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white"
-              style={{ fontSize: 14 }}
-            />
-          </div>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descripcion (opcional)"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-white outline-none focus:border-primary"
+            style={{ fontSize: 14 }}
+          />
 
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={!isNameValid || isSubmitting}
-              className="px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-              style={{ fontSize: 14 }}
+              className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+              style={{ fontSize: 13, fontWeight: 600 }}
             >
-              {isSubmitting ? "Creando..." : "Guardar categoria"}
+              {isSubmitting ? "Creando..." : "Crear Categoria"}
             </button>
             <button
               type="button"
               onClick={resetCreator}
-              className="px-4 py-2 rounded-lg border border-border"
-              style={{ fontSize: 14 }}
+              className="px-4 py-2 border border-border rounded-lg"
+              style={{ fontSize: 13 }}
             >
               Cancelar
             </button>

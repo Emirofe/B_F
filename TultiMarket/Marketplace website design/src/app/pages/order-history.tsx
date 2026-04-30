@@ -4,26 +4,38 @@ import { Package, ChevronDown, ChevronUp, Calendar, Loader2, User, Shield } from
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
 import { Footer } from "../components/layout/footer";
-import { getPedidosVendedorApi } from "../api/api-client";
-import { mockOrders } from "../data/mock-data";
+import { getPedidosVendedorApi, getPedidosAdminApi, getPedidosCompradorApi } from "../api/api-client";
 
 export function OrderHistoryPage() {
   const { orders, currentUser } = useStore();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [sellerOrders, setSellerOrders] = useState<typeof orders>([]);
+  const [adminOrders, setAdminOrders] = useState<typeof orders>([]);
+  const [buyerOrders, setBuyerOrders] = useState<typeof orders>([]);
   const [isLoadingSellerOrders, setIsLoadingSellerOrders] = useState(false);
+  const [isLoadingAdminOrders, setIsLoadingAdminOrders] = useState(false);
+  const [isLoadingBuyerOrders, setIsLoadingBuyerOrders] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.role !== "vendedor") {
-      setSellerOrders([]);
-      return;
+    if (currentUser?.role === "vendedor") {
+      setIsLoadingSellerOrders(true);
+      getPedidosVendedorApi()
+        .then((data) => setSellerOrders(data))
+        .catch(() => setSellerOrders([]))
+        .finally(() => setIsLoadingSellerOrders(false));
+    } else if (currentUser?.role === "admin") {
+      setIsLoadingAdminOrders(true);
+      getPedidosAdminApi()
+        .then((data) => setAdminOrders(data))
+        .catch(() => setAdminOrders([]))
+        .finally(() => setIsLoadingAdminOrders(false));
+    } else if (currentUser?.role === "comprador") {
+      setIsLoadingBuyerOrders(true);
+      getPedidosCompradorApi()
+        .then((data) => setBuyerOrders(data))
+        .catch(() => setBuyerOrders([]))
+        .finally(() => setIsLoadingBuyerOrders(false));
     }
-
-    setIsLoadingSellerOrders(true);
-    getPedidosVendedorApi()
-      .then((data) => setSellerOrders(data))
-      .catch(() => setSellerOrders([]))
-      .finally(() => setIsLoadingSellerOrders(false));
   }, [currentUser?.role]);
 
   const pageCopy = useMemo(() => {
@@ -36,7 +48,7 @@ export function OrderHistoryPage() {
       case "admin":
         return {
           title: "Vista global de pedidos",
-          subtitle: "Referencia rapida para supervision administrativa.",
+          subtitle: "Todos los pedidos del marketplace en tiempo real.",
         };
       default:
         return {
@@ -46,12 +58,15 @@ export function OrderHistoryPage() {
     }
   }, [currentUser?.role]);
 
+  const isLoading = isLoadingSellerOrders || isLoadingAdminOrders || isLoadingBuyerOrders;
+
   const visibleOrders = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "vendedor") return sellerOrders;
-    if (currentUser.role === "admin") return mockOrders;
-    return orders.filter((order) => order.buyerId === currentUser.id);
-  }, [currentUser, orders, sellerOrders]);
+    if (currentUser.role === "admin") return adminOrders;
+    // Comprador: usar pedidos reales del backend; si la API aún no cargó, usar los del store local como fallback
+    return buyerOrders.length > 0 ? buyerOrders : orders.filter((order) => order.buyerId === currentUser.id);
+  }, [currentUser, orders, sellerOrders, adminOrders, buyerOrders]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,7 +92,7 @@ export function OrderHistoryPage() {
           <p className="text-muted-foreground" style={{ fontSize: 14 }}>{pageCopy.subtitle}</p>
         </div>
 
-        {isLoadingSellerOrders ? (
+        {isLoading ? (
           <div className="bg-white rounded-2xl border border-border py-16 flex items-center justify-center">
             <Loader2 className="animate-spin text-primary" size={36} />
           </div>
@@ -119,7 +134,7 @@ export function OrderHistoryPage() {
                     <span className={`px-3 py-1 rounded-full ${getStatusColor(order.status)}`} style={{ fontSize: 13, fontWeight: 500 }}>
                       {order.status}
                     </span>
-                    <span style={{ fontSize: 16, fontWeight: 600 }}>${order.total.toFixed(2)}</span>
+                    <span style={{ fontSize: 16, fontWeight: 600 }}>${(Number(order.total) || 0).toFixed(2)}</span>
                     {expandedOrder === order.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
                 </button>
@@ -136,18 +151,15 @@ export function OrderHistoryPage() {
                         </div>
                         <div className="rounded-xl border border-border bg-white p-4">
                           <p className="text-muted-foreground flex items-center gap-2 mb-1" style={{ fontSize: 12 }}>
-                            <Shield size={14} /> Vista
+                            <Shield size={14} /> Direccion de envio
                           </p>
-                          <p style={{ fontSize: 14, fontWeight: 600 }}>
-                            {currentUser?.role === "admin" ? "Supervision administrativa" : "Operacion del vendedor"}
-                          </p>
+                          <p style={{ fontSize: 14, fontWeight: 600 }}>{order.address || "No disponible"}</p>
                         </div>
                       </div>
                     )}
-
                     <div className="space-y-3">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex items-center gap-4">
+                      {order.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-4">
                           <img
                             src={item.product.image || "https://placehold.co/80x80?text=Item"}
                             alt={item.product.name}
@@ -159,7 +171,7 @@ export function OrderHistoryPage() {
                             </Link>
                             <p className="text-muted-foreground" style={{ fontSize: 13 }}>Cantidad: {item.quantity}</p>
                           </div>
-                          <p style={{ fontSize: 14, fontWeight: 600 }}>${(item.product.price * item.quantity).toFixed(2)}</p>
+                          <p style={{ fontSize: 14, fontWeight: 600 }}>${((Number(item.product.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</p>
                         </div>
                       ))}
                     </div>

@@ -5,7 +5,7 @@ import { getCategoriasAdminApi, createCategoriaAdminApi, updateCategoriaAdminApi
 interface Categoria {
   id: number;
   nombre_categoria: string;
-  tipo: "producto" | "servicio";
+  tipo: "producto" | "servicio" | "ambos";
 }
 
 export function AdminCategoriesPage() {
@@ -16,7 +16,7 @@ export function AdminCategoriesPage() {
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
   const [formData, setFormData] = useState({
     nombre_categoria: "",
-    tipo: "producto" as "producto" | "servicio",
+    tipo: "producto" as "producto" | "servicio" | "ambos",
   });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
@@ -29,7 +29,7 @@ export function AdminCategoriesPage() {
     try {
       setLoading(true);
       const response = await getCategoriasAdminApi();
-      setCategorias(response.categorias);
+      setCategorias(response.categorias as Categoria[]);
       setError(null);
     } catch (err) {
       setError("Error al cargar categorías");
@@ -83,218 +83,197 @@ export function AdminCategoriesPage() {
         await createCategoriaAdminApi(data);
       }
 
-      await loadCategorias();
       resetForm();
+      await loadCategorias();
     } catch (err: any) {
-      if (err.message?.includes("ya existe")) {
-        setValidationErrors({ nombre_categoria: "Ya existe una categoría con este nombre y tipo" });
-      } else {
-        setError("Error al guardar la categoría");
-        console.error(err);
-      }
+      setError(err.message || "Error al guardar la categoría");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleEdit = (categoria: Categoria) => {
-    setEditingCategoria(categoria);
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Estas seguro de eliminar esta categoría?")) return;
+
+    try {
+      await deleteCategoriaAdminApi(id);
+      await loadCategorias();
+    } catch (err: any) {
+      setError(err.message || "Error al eliminar la categoría");
+    }
+  };
+
+  const startEdit = (cat: Categoria) => {
+    setEditingCategoria(cat);
     setFormData({
-      nombre_categoria: categoria.nombre_categoria,
-      tipo: categoria.tipo,
+      nombre_categoria: cat.nombre_categoria,
+      tipo: cat.tipo,
     });
     setShowForm(true);
     setValidationErrors({});
   };
 
-  const handleDelete = async (categoria: Categoria) => {
-    if (!confirm(`¿Estás seguro de eliminar la categoría "${categoria.nombre_categoria}"?`)) {
-      return;
-    }
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingCategoria(null);
+    setFormData({ nombre_categoria: "", tipo: "producto" });
+    setValidationErrors({});
+  };
 
-    try {
-      await deleteCategoriaAdminApi(categoria.id);
-      await loadCategorias();
-    } catch (err) {
-      setError("Error al eliminar la categoría");
-      console.error(err);
+  const tipoLabel = (tipo: string) => {
+    switch (tipo) {
+      case "producto": return "Producto";
+      case "servicio": return "Servicio";
+      case "ambos": return "Ambos";
+      default: return tipo;
     }
   };
 
-  const resetForm = () => {
-    setFormData({ nombre_categoria: "", tipo: "producto" });
-    setEditingCategoria(null);
-    setShowForm(false);
-    setValidationErrors({});
+  const tipoColor = (tipo: string) => {
+    switch (tipo) {
+      case "producto": return "bg-blue-100 text-blue-700";
+      case "servicio": return "bg-purple-100 text-purple-700";
+      case "ambos": return "bg-amber-100 text-amber-700";
+      default: return "bg-gray-100 text-gray-700";
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="animate-spin text-primary" size={36} />
       </div>
     );
   }
 
   return (
-    <>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600 }}>Gestión de Categorías</h1>
-          <p className="text-muted-foreground mt-1" style={{ fontSize: 14 }}>
-            Administra las categorías de productos y servicios disponibles en la plataforma
+          <h1 style={{ fontSize: 24, fontWeight: 600 }}>Gestion de Categorias</h1>
+          <p className="text-muted-foreground" style={{ fontSize: 14 }}>
+            Administra las categorias de productos y servicios del marketplace.
           </p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-          style={{ fontSize: 14, fontWeight: 500 }}
+          onClick={() => { resetForm(); setShowForm(true); }}
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-colors"
+          style={{ fontSize: 14, fontWeight: 600 }}
         >
-          <Plus size={18} />
-          Nueva Categoría
+          <Plus size={16} /> Nueva Categoria
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-red-800" style={{ fontSize: 14 }}>{error}</p>
-          </div>
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 text-red-700 border border-red-200" style={{ fontSize: 14 }}>
+          <AlertCircle size={16} /> {error}
+          <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700">
+            <XCircle size={16} />
+          </button>
         </div>
       )}
 
       {showForm && (
-        <div className="bg-white border border-border rounded-xl p-6 mb-6">
-          <h2 style={{ fontSize: 18, fontWeight: 600 }} className="mb-4">
-            {editingCategoria ? "Editar Categoría" : "Nueva Categoría"}
-          </h2>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-border p-6 space-y-4">
+          <h3 style={{ fontSize: 18, fontWeight: 600 }}>
+            {editingCategoria ? "Editar Categoria" : "Nueva Categoria"}
+          </h3>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Nombre de la Categoría</label>
-              <input
-                type="text"
-                value={formData.nombre_categoria}
-                onChange={(e) => {
-                  setFormData({ ...formData, nombre_categoria: e.target.value });
-                  if (validationErrors.nombre_categoria) {
-                    setValidationErrors({ ...validationErrors, nombre_categoria: "" });
-                  }
-                }}
-                className={`w-full px-3 py-2 border rounded-lg outline-none focus:border-primary transition-colors ${
-                  validationErrors.nombre_categoria ? "border-red-300" : "border-border"
-                }`}
-                placeholder="Ej: Electrónicos, Ropa, Servicios de Limpieza"
-              />
-              {validationErrors.nombre_categoria && (
-                <p className="text-red-600 text-sm mt-1">{validationErrors.nombre_categoria}</p>
-              )}
-            </div>
+          <div>
+            <label className="block mb-1.5" style={{ fontSize: 14, fontWeight: 500 }}>
+              Nombre de la categoria
+            </label>
+            <input
+              type="text"
+              value={formData.nombre_categoria}
+              onChange={(e) => setFormData({ ...formData, nombre_categoria: e.target.value })}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-gray-50 outline-none focus:border-primary"
+              placeholder="Ej: Decoracion para bodas"
+              style={{ fontSize: 14 }}
+            />
+            {validationErrors.nombre_categoria && (
+              <p className="text-red-500 mt-1" style={{ fontSize: 12 }}>{validationErrors.nombre_categoria}</p>
+            )}
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Tipo</label>
-              <select
-                value={formData.tipo}
-                onChange={(e) => setFormData({ ...formData, tipo: e.target.value as "producto" | "servicio" })}
-                className="w-full px-3 py-2 border border-border rounded-lg outline-none focus:border-primary transition-colors"
-              >
-                <option value="producto">Producto</option>
-                <option value="servicio">Servicio</option>
-              </select>
-            </div>
+          <div>
+            <label className="block mb-1.5" style={{ fontSize: 14, fontWeight: 500 }}>Tipo</label>
+            <select
+              value={formData.tipo}
+              onChange={(e) => setFormData({ ...formData, tipo: e.target.value as any })}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-gray-50 outline-none focus:border-primary"
+              style={{ fontSize: 14 }}
+            >
+              <option value="producto">Producto</option>
+              <option value="servicio">Servicio</option>
+              <option value="ambos">Ambos</option>
+            </select>
+          </div>
 
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingCategoria ? "Actualizar" : "Crear"} Categoría
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg disabled:opacity-50"
+              style={{ fontSize: 14, fontWeight: 600 }}
+            >
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              {saving ? "Guardando..." : editingCategoria ? "Actualizar" : "Crear"}
+            </button>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="px-6 py-2.5 border border-border rounded-lg"
+              style={{ fontSize: 14 }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
       )}
 
-      <div className="bg-white border border-border rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Categorías ({categorias.length})</h3>
+      <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center gap-2">
+          <Tag size={16} className="text-primary" />
+          <span style={{ fontSize: 15, fontWeight: 600 }}>{categorias.length} categoria{categorias.length !== 1 ? "s" : ""}</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-border">
-                <th className="px-6 py-4" style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>
-                  NOMBRE
-                </th>
-                <th className="px-6 py-4" style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>
-                  TIPO
-                </th>
-                <th className="px-6 py-4 text-right" style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {categorias.map((categoria) => (
-                <tr key={categoria.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p style={{ fontSize: 14, fontWeight: 500 }}>{categoria.nombre_categoria}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
-                        categoria.tipo === "producto"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {categoria.tipo}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(categoria)}
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(categoria)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {categorias.length === 0 && (
-            <div className="text-center py-12">
-              <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500" style={{ fontSize: 14 }}>
-                No hay categorías registradas
-              </p>
-            </div>
-          )}
-        </div>
+        {categorias.length === 0 ? (
+          <div className="text-center py-12">
+            <Tag size={36} className="mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground" style={{ fontSize: 14 }}>No hay categorias registradas</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {categorias.map((cat) => (
+              <div key={cat.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>{cat.nombre_categoria}</span>
+                  <span className={`px-2 py-0.5 rounded-full ${tipoColor(cat.tipo)}`} style={{ fontSize: 11, fontWeight: 600 }}>
+                    {tipoLabel(cat.tipo)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => startEdit(cat)}
+                    className="p-2 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-primary transition-colors"
+                    title="Editar"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(cat.id)}
+                    className="p-2 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ export function SellerLayout() {
     { label: "Pedidos", path: "/vendedor/pedidos", icon: <ClipboardList size={18} /> },
     { label: "Ventas", path: "/vendedor/ventas", icon: <BarChart3 size={18} /> },
     { label: "Mi Agenda", path: "/vendedor/agenda", icon: <Calendar size={18} /> },
+    { label: "Categorias", path: "/vendedor/categorias", icon: <Tag size={18} /> },
     { label: "Mi Perfil", path: "/perfil", icon: <User size={18} /> },
   ];
 

@@ -44,7 +44,7 @@ export function WishlistPage() {
                   </Link>
                   <StarRating rating={product.rating} size={14} />
                   <p className="text-primary mt-2 mb-4" style={{ fontSize: 18, fontWeight: 700 }}>
-                    ${product.price.toFixed(2)}
+                    ${(Number(product.price) || 0).toFixed(2)}
                   </p>
                   <div className="flex items-center gap-2">
                     {product.stock > 0 ? (

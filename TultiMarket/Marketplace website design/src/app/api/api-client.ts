@@ -57,26 +57,9 @@ async function api<T>(
       },
   });
 
-  // Leer el cuerpo como texto y tratar de parsearlo como JSON.
-  // Si el servidor devuelve HTML (por ejemplo, una página de login) la
-  // conversión fallará y lanzará la excepción "Unexpected token '<'".
-  // En ese caso devolvemos el texto tal cual para que el llamador pueda
-  // decidir qué hacer (mostrar error amigable, redirigir, etc.).
+  // Si la respuesta está vacía (204 No Content) devolver un objeto vacío
   const text = await response.text();
-  let data: any;
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { raw: text };
-  }
-
-  if (!response.ok) {
-    // El backend usa "mensaje" para errors, pero algunos endpoints de vendedor usan "error"
-    const mensaje = data.mensaje ?? data.error ?? `Error HTTP ${response.status}`;
-    throw new Error(mensaje);
-  }
-
-  return data as T;
+  const data = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
     // El backend usa "mensaje" para errors, pero algunos endpoints de vendedor usan "error"
@@ -134,9 +117,9 @@ export async function registerApi(
   nombre: string,
   email: string,
   password: string,
-  rol: "admin" | "comprador" | "vendedor" = "comprador"
+  rol: "comprador" | "vendedor" = "comprador"
 ): Promise<User> {
-  const id_rol = rol === "vendedor" ? 3 : rol === "admin" ? 1 : 2;
+  const id_rol = rol === "vendedor" ? 2 : 1;
   const data = await api<{
     usuario: { id: number; nombre: string; email: string };
   }>("/registrar", {
@@ -187,37 +170,9 @@ export async function logoutApi(): Promise<void> {
  *
  * No requiere sesión.
  */
-export async function getCategoriasApi(tipo?: "producto" | "servicio" | "ambos") {
-  const query = tipo ? `?tipo=${tipo}` : "";
-  const endpoint = tipo ? `/api/vendedor/categorias${query}` : "/comprador/categorias";
-  const data = await api<RawCategoria[]>(endpoint);
+export async function getCategoriasApi() {
+  const data = await api<RawCategoria[]>("/comprador/categorias");
   return data.map(mapCategoria);
-}
-
-export async function createCategoriaVendedorApi(datos: {
-  nombre_categoria: string;
-  descripcion?: string;
-  icon_url?: string;
-  tipo: "producto" | "servicio" | "ambos";
-}) {
-  return api<{
-    mensaje: string;
-    categoria: {
-      id: number;
-      nombre_categoria: string;
-      descripcion: string | null;
-      icon_url: string | null;
-      tipo: "producto" | "servicio" | "ambos";
-    };
-  }>("/api/vendedor/categorias", {
-    method: "POST",
-    body: JSON.stringify(datos),
-  });
-}
-
-export async function checkCategoriaUniquenessApi(nombre: string, tipo: "producto" | "servicio" | "ambos"): Promise<boolean> {
-  const data = await api<{ exists: boolean }>(`/api/vendedor/categorias/check?nombre=${encodeURIComponent(nombre)}&tipo=${tipo}`);
-  return data.exists;
 }
 
 /**
@@ -320,6 +275,28 @@ export async function getServicioDetalleApi(id: number): Promise<Product> {
   return mapServicioDetalle(data.servicio);
 }
 
+/**
+ * POST /comprador/resenas
+ * Crea una reseña para un producto o servicio.
+ * Requiere sesión activa.
+ */
+export async function createReviewApi(
+  tipo: "producto" | "servicio",
+  idItem: number,
+  calificacion: number,
+  comentario: string
+) {
+  return api<{ mensaje: string; resena: any }>("/comprador/resenas", {
+    method: "POST",
+    body: JSON.stringify({
+      tipo,
+      id_item: idItem,
+      calificacion,
+      comentario,
+    }),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CUENTA (requiere sesión activa)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -394,7 +371,7 @@ export async function getMisDireccionesApi(): Promise<Address[]> {
  *
  * BUG CORREGIDO ANTERIORMENTE: Quitamos geo_location/PostGIS del INSERT del back.
  */
-export async function addDireccionApi(addr: Omit<Address, "id">): Promise<number> {
+export async function addDireccionApi(addr: Omit<Address, "id"> & { latitud?: number; longitud?: number }): Promise<number> {
   const body = mapDireccionToBack(addr);
   const data = await api<{ id_direccion: number }>("/comprador/cuenta/direcciones", {
     method: "POST",
@@ -535,6 +512,8 @@ export async function getCarritoApi() {
       id_producto: number | null;
       id_servicio: number | null;
       nombre: string;
+      imagen: string | null;
+      stock_maximo: number;
       empresa: string;
       cantidad: number;
       precio_unitario: number;
@@ -641,7 +620,7 @@ export async function vaciarCarritoApi() {
 export async function checkoutApi(idDireccion?: number, idMetodoPago?: number) {
   return api<{
     mensaje: string;
-    pedido: { id: number; total: number; estado_pedido: string; fecha_creacion: string };
+    pedido: { id: number; total: number; estado_pedido: string; fecha_pedido: string };
   }>("/comprador/carrito/checkout", {
     method: "POST",
     body: JSON.stringify({
@@ -649,6 +628,73 @@ export async function checkoutApi(idDireccion?: number, idMetodoPago?: number) {
       id_metodo_pago: idMetodoPago ?? null,
     }),
   });
+}
+
+/**
+ * GET /comprador/mis-pedidos
+ * Historial de pedidos del comprador autenticado.
+ * Devuelve pedidos con items, total, estado, snapshots de dirección y método de pago.
+ */
+export async function getPedidosCompradorApi(): Promise<Order[]> {
+  const data = await api<{
+    status: string;
+    pedidos: Array<{
+      id: number;
+      folio: string;
+      fecha: string;
+      total: number;
+      estado: string;
+      direccion: any;
+      metodo_pago: any;
+      items: Array<{
+        id: number;
+        tipo: string;
+        nombre: string;
+        cantidad: number;
+        precio: number;
+        subtotal: number;
+        imagen: string | null;
+      }>;
+    }>;
+  }>("/comprador/mis-pedidos");
+
+  return data.pedidos.map((p) => ({
+    id: String(p.id),
+    folio: p.folio,
+    date: p.fecha
+      ? new Date(p.fecha).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
+    total: Number(p.total) || 0,
+    status: p.estado ?? "Pendiente",
+    buyerName: "",
+    buyerId: "",
+    address: p.direccion
+      ? `${p.direccion.calle ?? ""}, ${p.direccion.ciudad ?? ""}, ${p.direccion.estado ?? ""} ${p.direccion.codigo_postal ?? ""}, ${p.direccion.pais ?? ""}`
+      : "",
+    paymentMethod: p.metodo_pago
+      ? `${p.metodo_pago.proveedor_pago ?? "Tarjeta"} ****${p.metodo_pago.ultimos_cuatro ?? ""}`
+      : undefined,
+    items: p.items.map((item) => ({
+      product: {
+        id: String(item.id),
+        name: item.nombre,
+        description: "",
+        price: Number(item.precio) || 0,
+        image: item.imagen ?? "https://placehold.co/400x400?text=Producto",
+        images: [],
+        category: "general",
+        rating: 0,
+        reviewCount: 0,
+        stock: 0,
+        sellerId: "0",
+        sellerName: "",
+        reviews: [],
+        type: item.tipo as "producto" | "servicio",
+        status: "Aprobado" as const,
+      },
+      quantity: Number(item.cantidad) || 1,
+    })),
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -734,6 +780,8 @@ export async function getProductosVendedorApi(idNegocio: number) {
       sku: string | null;
       esta_activo: boolean;
       fecha_registro: string;
+      id_categoria?: number | null;
+      imagen_principal?: string | null;
     }>
   >(`/api/vendedor/productos/${idNegocio}`);
 }
@@ -821,6 +869,8 @@ export async function getServiciosVendedorApi(idNegocio: number) {
       calificacion: number | null;
       esta_activo: boolean;
       fecha_registro: string;
+      id_categoria?: number | null;
+      imagen_principal?: string | null;
     }>
   >(`/api/vendedor/servicios/${idNegocio}`);
 }
@@ -881,60 +931,6 @@ export async function deleteServicioVendedorApi(id: number) {
   return api(`/api/vendedor/servicios/${id}`, { method: "DELETE" });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WISHLIST (requiere sesión activa)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function getWishlistItemsApi() {
-  return api<{
-    lista: {
-      id: number;
-      id_usuario: number;
-      nombre: string;
-      es_publica: boolean;
-      fecha_creacion: string;
-    };
-    total_items: number;
-    items: Array<{
-      id: number;
-      id_producto: number | null;
-      id_servicio: number | null;
-      fecha_agregado: string;
-      producto_nombre: string | null;
-      producto_precio: number | null;
-      producto_activo: boolean | null;
-      servicio_nombre: string | null;
-      servicio_precio: number | null;
-      servicio_activo: boolean | null;
-    }>;
-  }>("/comprador/wishlist/items");
-}
-
-export async function addToWishlistApi(idProducto?: number, idServicio?: number) {
-  return api<{
-    mensaje: string;
-    item: {
-      id: number;
-      id_lista: number;
-      id_producto: number | null;
-      id_servicio: number | null;
-      fecha_agregado: string;
-    };
-  }>("/comprador/wishlist/items", {
-    method: "POST",
-    body: JSON.stringify({
-      id_producto: idProducto ?? null,
-      id_servicio: idServicio ?? null,
-    }),
-  });
-}
-
-export async function removeFromWishlistApi(idItem: number) {
-  return api<{ mensaje: string }>(`/comprador/wishlist/items/${idItem}`, {
-    method: "DELETE",
-  });
-}
-
 /**
  * GET /api/vendedor/negocio
  */
@@ -983,12 +979,25 @@ export async function createNegocioVendedorApi(datos: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN CATEGORÍAS
+// ADMIN: PEDIDOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/pedidos
+ * Lista todos los pedidos del sistema (vista global admin).
+ */
+export async function getPedidosAdminApi(): Promise<Order[]> {
+  const data = await api<{ pedidos: RawPedido[] }>("/admin/pedidos");
+  return data.pedidos.map(mapPedidoVendedor);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: CATEGORÍAS
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * GET /admin/categorias
- * Response: { status: "success", total: number, categorias: [{ id, nombre_categoria, tipo }] }
+ * Lista todas las categorías del sistema.
  */
 export async function getCategoriasAdminApi() {
   return api<{
@@ -1000,18 +1009,13 @@ export async function getCategoriasAdminApi() {
 
 /**
  * POST /admin/categorias
- * Body: { nombre_categoria: string, tipo: "producto" | "servicio" }
- * Response: { status: "success", mensaje: string, data: { id, nombre_categoria, tipo } }
+ * Crea una nueva categoría.
  */
 export async function createCategoriaAdminApi(datos: {
   nombre_categoria: string;
-  tipo: "producto" | "servicio";
+  tipo: string;
 }) {
-  return api<{
-    status: string;
-    mensaje: string;
-    data: { id: number; nombre_categoria: string; tipo: string };
-  }>("/admin/categorias", {
+  return api<{ status: string; mensaje: string; data: any }>("/admin/categorias", {
     method: "POST",
     body: JSON.stringify(datos),
   });
@@ -1019,18 +1023,13 @@ export async function createCategoriaAdminApi(datos: {
 
 /**
  * PUT /admin/categorias/:id
- * Body: { nombre_categoria: string, tipo: "producto" | "servicio" }
- * Response: { status: "success", mensaje: string, data: { id, nombre_categoria, tipo } }
+ * Actualiza una categoría existente.
  */
 export async function updateCategoriaAdminApi(
   id: number,
-  datos: { nombre_categoria: string; tipo: "producto" | "servicio" }
+  datos: { nombre_categoria: string; tipo: string }
 ) {
-  return api<{
-    status: string;
-    mensaje: string;
-    data: { id: number; nombre_categoria: string; tipo: string };
-  }>(`/admin/categorias/${id}`, {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/categorias/${id}`, {
     method: "PUT",
     body: JSON.stringify(datos),
   });
@@ -1038,95 +1037,129 @@ export async function updateCategoriaAdminApi(
 
 /**
  * DELETE /admin/categorias/:id
- * Response: { status: "success", mensaje: string, data: { id, nombre_categoria, tipo } }
+ * Elimina una categoría.
  */
 export async function deleteCategoriaAdminApi(id: number) {
-  return api<{
-    status: string;
-    mensaje: string;
-    data: { id: number; nombre_categoria: string; tipo: string };
-  }>(`/admin/categorias/${id}`, {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/categorias/${id}`, {
     method: "DELETE",
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN CATALOGO
+// VENDEDOR: CATEGORÍAS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface AdminCatalogItem {
-  id: number;
-  nombre: string;
-  descripcion: string | null;
-  precio?: number; // Para productos
-  precio_base?: number; // Para servicios
-  stock_total?: number; // Para productos
-  esta_activo: boolean;
-  estado_catalogo: string;
-  fecha_registro: string;
-  negocio: string;
-}
-
-export async function getAdminCatalogoProductosApi() {
-  const data = await api<{
-    status: string;
-    total: number;
-    productos: AdminCatalogItem[];
-  }>("/admin/catalogo/productos");
-  return data.productos;
-}
-
-export async function getAdminCatalogoServiciosApi() {
-  const data = await api<{
-    status: string;
-    total: number;
-    servicios: AdminCatalogItem[];
-  }>("/admin/catalogo/servicios");
-  return data.servicios;
-}
-
-export async function updateAdminEstadoProductoApi(id: number, estado: "APROBADO" | "RECHAZADO") {
-  return api(`/admin/catalogo/productos/${id}/estado`, {
-    method: "PATCH",
-    body: JSON.stringify({ estado }),
+/**
+ * POST /api/vendedor/categorias
+ * Crea una categoría nueva desde el panel vendedor.
+ */
+export async function createCategoriaVendedorApi(datos: {
+  nombre_categoria: string;
+  tipo: string;
+  descripcion?: string;
+  id_padre?: number;
+}) {
+  return api<{ mensaje: string; categoria: any }>("/api/vendedor/categorias", {
+    method: "POST",
+    body: JSON.stringify(datos),
   });
 }
 
-export async function updateAdminEstadoServicioApi(id: number, estado: "APROBADO" | "RECHAZADO") {
-  return api(`/admin/catalogo/servicios/${id}/estado`, {
-    method: "PATCH",
-    body: JSON.stringify({ estado }),
-  });
+/**
+ * GET /api/vendedor/categorias/check
+ * Verifica si ya existe una categoría con ese nombre y tipo.
+ */
+export async function checkCategoriaUniquenessApi(nombre: string, tipo: string) {
+  return api<{ exists: boolean }>(
+    `/api/vendedor/categorias/check?nombre=${encodeURIComponent(nombre)}&tipo=${encodeURIComponent(tipo)}`
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RESEÑAS
+// WISHLIST (requiere sesión activa)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function createReviewApi(
-  tipo: "producto" | "servicio",
-  idItem: number,
-  calificacion: number,
-  comentario: string
+/**
+ * GET /comprador/wishlist
+ * Obtiene (o crea automáticamente) la wishlist única del usuario.
+ * Response: { wishlist: { id, id_usuario, nombre, es_publica, fecha_creacion }, total_items }
+ */
+export async function getWishlistApi() {
+  return api<{
+    wishlist: {
+      id: number;
+      id_usuario: number;
+      nombre: string;
+      es_publica: boolean;
+      fecha_creacion: string;
+    };
+    total_items: number;
+  }>("/comprador/wishlist");
+}
+
+/**
+ * GET /comprador/wishlist/items
+ * Obtiene los ítems de la wishlist con información del producto/servicio.
+ */
+export async function getWishlistItemsApi() {
+  return api<{
+    lista: {
+      id: number;
+      id_usuario: number;
+      nombre: string;
+      es_publica: boolean;
+      fecha_creacion: string;
+    };
+    total_items: number;
+    items: Array<{
+      id: number;
+      id_producto: number | null;
+      id_servicio: number | null;
+      fecha_agregado: string;
+      producto_nombre: string | null;
+      producto_precio: number | null;
+      producto_activo: boolean | null;
+      servicio_nombre: string | null;
+      servicio_precio: number | null;
+      servicio_activo: boolean | null;
+    }>;
+  }>("/comprador/wishlist/items");
+}
+
+/**
+ * POST /comprador/wishlist/items
+ * Agrega un producto o servicio a la wishlist.
+ * Body: { id_producto: number } | { id_servicio: number }
+ */
+export async function addToWishlistApi(
+  idProducto?: number,
+  idServicio?: number
 ) {
-  const body: any = { calificacion, comentario };
-  if (tipo === "producto") {
-    body.id_producto = idItem;
-  } else {
-    body.id_servicio = idItem;
-  }
+  return api<{
+    mensaje: string;
+    item: {
+      id: number;
+      id_lista: number;
+      id_producto: number | null;
+      id_servicio: number | null;
+      fecha_agregado: string;
+    };
+  }>("/comprador/wishlist/items", {
+    method: "POST",
+    body: JSON.stringify({
+      id_producto: idProducto ?? null,
+      id_servicio: idServicio ?? null,
+    }),
+  });
+}
 
-  // Try primary path
-  try {
-    return await api("/comprador/resenas", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    // If not found, fallback to /api prefix
-    return await api("/api/comprador/resenas", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-  }
+/**
+ * DELETE /comprador/wishlist/items/:idItem
+ * Elimina un ítem específico de la wishlist.
+ */
+export async function removeFromWishlistApi(idItem: number) {
+  return api<{ mensaje: string }>(
+    `/comprador/wishlist/items/${idItem}`,
+    { method: "DELETE" }
+  );
 }
