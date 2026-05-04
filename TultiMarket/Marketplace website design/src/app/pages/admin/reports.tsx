@@ -8,29 +8,93 @@ export function AdminReportsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
 
+  const reportStatuses = [
+    "all",
+    "Pendiente",
+    "Revisado",
+    "Advertencia formal",
+    "Suspensión temporal",
+    "Bloqueo permanente",
+    "Desestimado",
+    "Contenido eliminado",
+    "Resuelto",
+  ];
+
   const filtered = statusFilter === "all"
     ? reports
     : reports.filter((r) => r.status === statusFilter);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Resuelto": return <CheckCircle size={16} className="text-green-600" />;
-      case "Revisado": return <AlertTriangle size={16} className="text-amber-600" />;
-      default: return <Clock size={16} className="text-red-600" />;
+      case "Resuelto":
+        return <CheckCircle size={16} className="text-green-600" />;
+      case "Revisado":
+        return <AlertTriangle size={16} className="text-amber-600" />;
+      case "Advertencia formal":
+        return <AlertTriangle size={16} className="text-orange-600" />;
+      case "Suspensión temporal":
+        return <ShieldOff size={16} className="text-yellow-600" />;
+      case "Bloqueo permanente":
+        return <X size={16} className="text-red-600" />;
+      case "Desestimado":
+        return <X size={16} className="text-slate-600" />;
+      case "Contenido eliminado":
+        return <Trash2 size={16} className="text-slate-600" />;
+      default:
+        return <Clock size={16} className="text-red-600" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Resuelto": return "bg-green-100 text-green-700";
-      case "Revisado": return "bg-amber-100 text-amber-700";
-      default: return "bg-red-100 text-red-700";
+      case "Resuelto":
+        return "bg-green-100 text-green-700";
+      case "Revisado":
+        return "bg-amber-100 text-amber-700";
+      case "Advertencia formal":
+        return "bg-orange-100 text-orange-700";
+      case "Suspensión temporal":
+        return "bg-yellow-100 text-yellow-700";
+      case "Bloqueo permanente":
+        return "bg-red-100 text-red-700";
+      case "Desestimado":
+        return "bg-slate-100 text-slate-700";
+      case "Contenido eliminado":
+        return "bg-slate-100 text-slate-700";
+      default:
+        return "bg-red-100 text-red-700";
+    }
+  };
+
+  const getNotificationMessage = (status: Report["status"], report: Report) => {
+    switch (status) {
+      case "Resuelto":
+        return `Reporte ${report.id.toUpperCase()} resuelto. Se notificó a ${report.reporterName}.`;
+      case "Revisado":
+        return `Reporte ${report.id.toUpperCase()} marcado como revisado. Se notificó al reportante.`;
+      case "Advertencia formal":
+        return `Advertencia formal enviada a ${report.reportedName}. Reportante ${report.reporterName} notificado.`;
+      case "Suspensión temporal":
+        return `Suspensión temporal aplicada a ${report.reportedName}. Ambas partes han sido notificadas.`;
+      case "Bloqueo permanente":
+        return `Bloqueo permanente aplicado a ${report.reportedName}. Reportante ${report.reporterName} notificado.`;
+      case "Desestimado":
+        return `Reporte desestimado. Se notificó a ${report.reporterName}.`;
+      case "Contenido eliminado":
+        return `Contenido eliminado. Se notificó a ${report.reporterName} y ${report.reportedName}.`;
+      default:
+        return `Estado actualizado a ${status}.`;
     }
   };
 
   const updateReportStatus = (id: string, status: Report["status"]) => {
+    const report = reports.find((r) => r.id === id);
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-    toast.success(`Reporte actualizado a: ${status}`);
+    if (report) {
+      toast.success(getNotificationMessage(status, report));
+    } else {
+      toast.success(`Reporte actualizado a: ${status}`);
+    }
   };
 
   return (
@@ -47,7 +111,7 @@ export function AdminReportsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <Filter size={18} className="text-muted-foreground" />
-        {["all", "Pendiente", "Revisado", "Resuelto"].map((status) => (
+        {reportStatuses.map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
@@ -114,28 +178,36 @@ export function AdminReportsPage() {
                     <CheckCircle size={16} /> Resolver
                   </button>
                   <button
-                    onClick={() => updateReportStatus(report.id, "Revisado")}
-                    className="flex items-center gap-1 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                    onClick={() => updateReportStatus(report.id, "Advertencia formal")}
+                    className="flex items-center gap-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
                     style={{ fontSize: 14 }}
                   >
-                    <AlertTriangle size={16} /> Advertir Usuario
+                    <AlertTriangle size={16} /> Advertencia formal
                   </button>
                   <button
-                    onClick={() => {
-                      toast.success("Usuario bloqueado");
-                      updateReportStatus(report.id, "Resuelto");
-                    }}
+                    onClick={() => updateReportStatus(report.id, "Suspensión temporal")}
+                    className="flex items-center gap-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                    style={{ fontSize: 14 }}
+                  >
+                    <ShieldOff size={16} /> Suspensión temporal
+                  </button>
+                  <button
+                    onClick={() => updateReportStatus(report.id, "Bloqueo permanente")}
                     className="flex items-center gap-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                     style={{ fontSize: 14 }}
                   >
-                    <ShieldOff size={16} /> Bloquear Usuario
+                    <X size={16} /> Bloqueo permanente
                   </button>
                   <button
-                    onClick={() => {
-                      updateReportStatus(report.id, "Resuelto");
-                      toast("Reporte desestimado");
-                    }}
-                    className="flex items-center gap-1 px-4 py-2 border border-border rounded-lg hover:bg-white"
+                    onClick={() => updateReportStatus(report.id, "Contenido eliminado")}
+                    className="flex items-center gap-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800"
+                    style={{ fontSize: 14 }}
+                  >
+                    <Trash2 size={16} /> Eliminar contenido
+                  </button>
+                  <button
+                    onClick={() => updateReportStatus(report.id, "Desestimado")}
+                    className="flex items-center gap-1 px-4 py-2 border border-border rounded-lg hover:bg-gray-50"
                     style={{ fontSize: 14 }}
                   >
                     <X size={16} /> Desestimar
