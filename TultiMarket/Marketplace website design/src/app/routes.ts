@@ -39,7 +39,7 @@ export const router = createBrowserRouter([
       { path: "carrito", Component: CartPage },
       { path: "checkout", Component: CheckoutPage },
       { path: "perfil", Component: ProfilePage },
-      { path: "pedidos", Component: OrderHistoryPage },
+      { path: "mis-compras", Component: OrderHistoryPage },
       { path: "wishlist", Component: WishlistPage },
       { path: "buscar", Component: SearchPage },
       {

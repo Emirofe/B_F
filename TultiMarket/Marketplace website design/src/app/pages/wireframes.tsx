@@ -563,7 +563,7 @@ const screens: ScreenDoc[] = [
       {
         name: "Accesos Rapidos",
         elements: [
-          "Card 'Mis Pedidos' con icono Package (link a /pedidos)",
+          "Card 'Mis Compras' con icono Package (link a /mis-compras)",
           "Card 'Lista de Deseos' con icono Heart (link a /wishlist)",
           "Card 'Cerrar Sesion' con icono LogOut",
         ],
@@ -621,13 +621,12 @@ const screens: ScreenDoc[] = [
     ),
   },
   {
-    id: "orders",
-    title: "Historial de Pedidos",
-    route: "/pedidos",
-    role: "Comprador",
+    title: "Mis Compras",
+    route: "/mis-compras",
+    role: "Todos",
     icon: <Package size={18} />,
     description:
-      "Lista de pedidos del comprador con vista expandible (accordion). Cada pedido muestra miniaturas de productos, folio, fecha, badge de estado (coloreado: verde/azul/ambar), total. Al expandir: detalle de cada item con imagen, nombre (link al producto), cantidad, subtotal, y direccion de envio.",
+      "Lista de compras personales del usuario (sin importar su rol: comprador, vendedor o admin). Cada pedido muestra miniaturas de productos, folio, fecha, badge de estado (coloreado), total, dirección y método de pago. Las ventas del negocio se ven en /vendedor/pedidos.",
     sections: [
       {
         name: "Lista de Pedidos",

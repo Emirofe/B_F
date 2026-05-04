@@ -1,86 +1,51 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Package, ChevronDown, ChevronUp, Calendar, Loader2, User, Shield } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Calendar, Loader2, CreditCard, MapPin, AlertCircle } from "lucide-react";
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
 import { Footer } from "../components/layout/footer";
-import { getPedidosVendedorApi, getPedidosAdminApi, getPedidosCompradorApi } from "../api/api-client";
+import { getPedidosCompradorApi } from "../api/api-client";
+import type { Order } from "../data/mock-data";
 
+/**
+ * Mis Compras — Muestra SIEMPRE las compras personales del usuario logueado,
+ * sin importar su rol (comprador, vendedor o admin).
+ *
+ * Las ventas del negocio se ven en /vendedor/pedidos (SellerOrdersPage).
+ */
 export function OrderHistoryPage() {
-  const { orders, currentUser } = useStore();
+  const { currentUser } = useStore();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [sellerOrders, setSellerOrders] = useState<typeof orders>([]);
-  const [adminOrders, setAdminOrders] = useState<typeof orders>([]);
-  const [buyerOrders, setBuyerOrders] = useState<typeof orders>([]);
-  const [isLoadingSellerOrders, setIsLoadingSellerOrders] = useState(false);
-  const [isLoadingAdminOrders, setIsLoadingAdminOrders] = useState(false);
-  const [isLoadingBuyerOrders, setIsLoadingBuyerOrders] = useState(false);
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentUser?.role === "vendedor") {
-      setIsLoadingSellerOrders(true);
-      getPedidosVendedorApi()
-        .then((data) => setSellerOrders(data))
-        .catch(() => setSellerOrders([]))
-        .finally(() => setIsLoadingSellerOrders(false));
-    } else if (currentUser?.role === "admin") {
-      setIsLoadingAdminOrders(true);
-      getPedidosAdminApi()
-        .then((data) => setAdminOrders(data))
-        .catch(() => setAdminOrders([]))
-        .finally(() => setIsLoadingAdminOrders(false));
-    } else if (currentUser?.role === "comprador") {
-      setIsLoadingBuyerOrders(true);
-      getPedidosCompradorApi()
-        .then((data) => setBuyerOrders(data))
-        .catch(() => setBuyerOrders([]))
-        .finally(() => setIsLoadingBuyerOrders(false));
-    }
-  }, [currentUser?.role]);
+    if (!currentUser) return;
 
-  const pageCopy = useMemo(() => {
-    switch (currentUser?.role) {
-      case "vendedor":
-        return {
-          title: "Pedidos de tu negocio",
-          subtitle: "Seguimiento de ventas, comprador y estado logistico.",
-        };
-      case "admin":
-        return {
-          title: "Vista global de pedidos",
-          subtitle: "Todos los pedidos del marketplace en tiempo real.",
-        };
-      default:
-        return {
-          title: "Historial de pedidos",
-          subtitle: "Consulta tus compras, estatus y detalle de cada orden.",
-        };
-    }
-  }, [currentUser?.role]);
+    setIsLoading(true);
+    setLoadError(null);
 
-  const isLoading = isLoadingSellerOrders || isLoadingAdminOrders || isLoadingBuyerOrders;
-
-  const visibleOrders = useMemo(() => {
-    if (!currentUser) return [];
-    if (currentUser.role === "vendedor") return sellerOrders;
-    if (currentUser.role === "admin") return adminOrders;
-    // Comprador: usar pedidos reales del backend; si la API aún no cargó, usar los del store local como fallback
-    return buyerOrders.length > 0 ? buyerOrders : orders.filter((order) => order.buyerId === currentUser.id);
-  }, [currentUser, orders, sellerOrders, adminOrders, buyerOrders]);
+    getPedidosCompradorApi()
+      .then((data) => setMyOrders(data))
+      .catch((err) => {
+        console.error("Error al cargar mis compras:", err);
+        setLoadError("No se pudieron cargar tus compras. Intenta de nuevo.");
+        setMyOrders([]);
+      })
+      .finally(() => setIsLoading(false));
+  }, [currentUser]);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Entregado": return "bg-green-100 text-green-700";
-      case "Enviado": return "bg-blue-100 text-blue-700";
-      default: return "bg-amber-100 text-amber-700";
+    const s = status.toUpperCase();
+    switch (s) {
+      case "ENTREGADO": return "bg-green-100 text-green-700";
+      case "ENVIADO": return "bg-blue-100 text-blue-700";
+      case "EN PREPARACION": return "bg-amber-100 text-amber-700";
+      case "CANCELADO": return "bg-red-100 text-red-700";
+      default: return "bg-gray-100 text-gray-600";
     }
   };
-
-  const emptyCopy = currentUser?.role === "vendedor"
-    ? "Todavia no hay pedidos vinculados a tu negocio."
-    : currentUser?.role === "admin"
-      ? "Aun no hay pedidos de referencia para supervision."
-      : "No tienes pedidos aun";
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -88,25 +53,53 @@ export function OrderHistoryPage() {
 
       <main className="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
         <div className="mb-6">
-          <h1 style={{ fontSize: 28, fontWeight: 600 }}>{pageCopy.title}</h1>
-          <p className="text-muted-foreground" style={{ fontSize: 14 }}>{pageCopy.subtitle}</p>
+          <h1 style={{ fontSize: 28, fontWeight: 600 }}>Mis Compras</h1>
+          <p className="text-muted-foreground" style={{ fontSize: 14 }}>
+            Consulta tus compras, estatus y detalle de cada orden.
+          </p>
         </div>
 
+        {/* Estado: Cargando */}
         {isLoading ? (
           <div className="bg-white rounded-2xl border border-border py-16 flex items-center justify-center">
             <Loader2 className="animate-spin text-primary" size={36} />
           </div>
-        ) : visibleOrders.length === 0 ? (
+
+        /* Estado: Error de red */
+        ) : loadError ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-border">
+            <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
+            <h2 className="mb-2" style={{ fontSize: 20, fontWeight: 600 }}>{loadError}</h2>
+            <button
+              onClick={() => {
+                setIsLoading(true);
+                setLoadError(null);
+                getPedidosCompradorApi()
+                  .then((data) => setMyOrders(data))
+                  .catch(() => setLoadError("No se pudieron cargar tus compras."))
+                  .finally(() => setIsLoading(false));
+              }}
+              className="text-primary hover:underline"
+              style={{ fontSize: 14 }}
+            >
+              Reintentar
+            </button>
+          </div>
+
+        /* Estado: Sin pedidos */
+        ) : myOrders.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-border">
             <Package size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-            <h2 className="mb-2" style={{ fontSize: 20, fontWeight: 600 }}>{emptyCopy}</h2>
+            <h2 className="mb-2" style={{ fontSize: 20, fontWeight: 600 }}>No tienes compras aún</h2>
             <Link to="/" className="text-primary hover:underline" style={{ fontSize: 14 }}>
-              {currentUser?.role === "comprador" ? "Ir a comprar" : "Volver al inicio"}
+              Ir a comprar
             </Link>
           </div>
+
+        /* Estado: Lista de pedidos */
         ) : (
           <div className="space-y-4">
-            {visibleOrders.map((order) => (
+            {myOrders.map((order) => (
               <div key={order.id} className="bg-white rounded-xl border border-border overflow-hidden">
                 <button
                   onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
@@ -141,22 +134,7 @@ export function OrderHistoryPage() {
 
                 {expandedOrder === order.id && (
                   <div className="border-t border-border p-5 bg-gray-50/50">
-                    {(currentUser?.role === "vendedor" || currentUser?.role === "admin") && (
-                      <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-border bg-white p-4">
-                          <p className="text-muted-foreground flex items-center gap-2 mb-1" style={{ fontSize: 12 }}>
-                            <User size={14} /> Comprador
-                          </p>
-                          <p style={{ fontSize: 14, fontWeight: 600 }}>{order.buyerName}</p>
-                        </div>
-                        <div className="rounded-xl border border-border bg-white p-4">
-                          <p className="text-muted-foreground flex items-center gap-2 mb-1" style={{ fontSize: 12 }}>
-                            <Shield size={14} /> Direccion de envio
-                          </p>
-                          <p style={{ fontSize: 14, fontWeight: 600 }}>{order.address || "No disponible"}</p>
-                        </div>
-                      </div>
-                    )}
+                    {/* Items del pedido */}
                     <div className="space-y-3">
                       {order.items.map((item, i) => (
                         <div key={i} className="flex items-center gap-4">
@@ -175,8 +153,21 @@ export function OrderHistoryPage() {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-4 pt-4 border-t border-border" style={{ fontSize: 14 }}>
-                      <p className="text-muted-foreground">Direccion: {order.address}</p>
+
+                    {/* Info de dirección y método de pago */}
+                    <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {order.address && (
+                        <div className="flex items-start gap-2">
+                          <MapPin size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>{order.address}</p>
+                        </div>
+                      )}
+                      {order.paymentMethod && (
+                        <div className="flex items-start gap-2">
+                          <CreditCard size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                          <p className="text-muted-foreground" style={{ fontSize: 13 }}>{order.paymentMethod}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

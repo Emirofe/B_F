@@ -378,3 +378,29 @@ EXCLUDE USING gist (
 CREATE INDEX idx_productos_descuento ON productos(id_descuento) WHERE id_descuento IS NOT NULL;
 CREATE INDEX idx_servicios_descuento ON servicios(id_descuento) WHERE id_descuento IS NOT NULL;
 
+-- =========================
+-- TABLA REPORTES
+-- =========================
+DROP TABLE IF EXISTS reportes CASCADE;
+CREATE TABLE reportes (
+    id SERIAL PRIMARY KEY,
+    id_usuario INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    id_negocio INT NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+    id_producto INT REFERENCES productos(id) ON DELETE CASCADE,
+    id_servicio INT REFERENCES servicios(id) ON DELETE CASCADE,
+    motivo VARCHAR(150) NOT NULL,
+    descripcion TEXT NOT NULL,
+    estado_reporte VARCHAR(50) DEFAULT 'PENDIENTE',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_resolucion TIMESTAMP NULL,
+    -- Restricción para asegurar que el reporte se asocie a un producto o a un servicio, pero no a ambos a la vez
+    CONSTRAINT check_reporte_target CHECK (
+        (id_producto IS NOT NULL AND id_servicio IS NULL) OR 
+        (id_producto IS NULL AND id_servicio IS NOT NULL)
+    )
+);
+
+-- Índices para optimizar búsquedas frecuentes
+CREATE INDEX idx_reportes_usuario ON reportes(id_usuario);
+CREATE INDEX idx_reportes_negocio ON reportes(id_negocio);
+CREATE INDEX idx_reportes_estado ON reportes(estado_reporte);

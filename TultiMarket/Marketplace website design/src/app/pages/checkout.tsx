@@ -385,11 +385,11 @@ export function CheckoutPage() {
             )}
             <div className="flex gap-3 justify-center px-6">
               <Link
-                to="/pedidos"
+                to="/mis-compras"
                 className="px-6 py-3 border-2 border-primary text-primary rounded-xl hover:bg-primary/5 transition-colors"
                 style={{ fontSize: 14, fontWeight: 600 }}
               >
-                Ver Mis Pedidos
+                Ver Mis Compras
               </Link>
               <Link
                 to="/"

@@ -288,7 +288,7 @@ export function ProfilePage() {
 
         {/* Quick nav */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Link to="/pedidos" className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-all flex items-center gap-4">
+          <Link to="/mis-compras" className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-all flex items-center gap-4">
             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
               <Package size={24} className="text-primary" />
             </div>

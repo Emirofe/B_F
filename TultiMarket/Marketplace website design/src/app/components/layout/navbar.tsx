@@ -145,12 +145,12 @@ export function Navbar() {
                       <User size={16} /> Mi Cuenta
                     </Link>
                     <Link
-                      to="/pedidos"
+                      to="/mis-compras"
                       className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-gray-50"
                       style={{ fontSize: 14 }}
                       onClick={() => setShowUserMenu(false)}
                     >
-                      <Package size={16} /> Mis Pedidos
+                      <Package size={16} /> Mis Compras
                     </Link>
                     {currentUser?.role === "vendedor" && (
                       <Link
@@ -272,8 +272,8 @@ export function Navbar() {
               <Link to="/perfil" className="block py-2 hover:bg-white/10 px-3 rounded" style={{ fontSize: 14 }} onClick={() => setMobileMenuOpen(false)}>
                 Mi Cuenta
               </Link>
-              <Link to="/pedidos" className="block py-2 hover:bg-white/10 px-3 rounded" style={{ fontSize: 14 }} onClick={() => setMobileMenuOpen(false)}>
-                Mis Pedidos
+              <Link to="/mis-compras" className="block py-2 hover:bg-white/10 px-3 rounded" style={{ fontSize: 14 }} onClick={() => setMobileMenuOpen(false)}>
+                Mis Compras
               </Link>
               <Link to={getDashboardLink()} className="block py-2 hover:bg-white/10 px-3 rounded" style={{ fontSize: 14 }} onClick={() => setMobileMenuOpen(false)}>
                 Mi Panel

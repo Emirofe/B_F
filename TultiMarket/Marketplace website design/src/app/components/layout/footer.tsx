@@ -39,7 +39,7 @@ export function Footer() {
             <h4 className="text-white mb-3" style={{ fontSize: 16, fontWeight: 600 }}>Mi Cuenta</h4>
             <div className="space-y-2">
               <Link to="/perfil" className="block hover:text-amber-400 transition-colors" style={{ fontSize: 14 }}>Mi Perfil</Link>
-              <Link to="/pedidos" className="block hover:text-amber-400 transition-colors" style={{ fontSize: 14 }}>Mis Pedidos</Link>
+              <Link to="/mis-compras" className="block hover:text-amber-400 transition-colors" style={{ fontSize: 14 }}>Mis Compras</Link>
               <Link to="/wishlist" className="block hover:text-amber-400 transition-colors" style={{ fontSize: 14 }}>Lista de Deseos</Link>
               <Link to="/carrito" className="block hover:text-amber-400 transition-colors" style={{ fontSize: 14 }}>Carrito</Link>
             </div>
