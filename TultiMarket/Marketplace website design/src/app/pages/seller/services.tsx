@@ -13,6 +13,7 @@ import {
 } from "../../api/api-client";
 import { useStore } from "../../context/store-context";
 import { toast } from "sonner";
+import { DynamicCategoryField } from "../../components/dynamic-category-field";
 
 interface ServiceFormData {
   name: string;
@@ -32,6 +33,7 @@ interface SellerService {
   calificacion: number | null;
   esta_activo: boolean;
   fecha_registro: string;
+  id_categoria?: number | null;
   imagen_principal?: string | null;
   id_categoria?: number | null;
   id_descuento?: number | null;
@@ -50,7 +52,7 @@ export function SellerServicesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState<ServiceFormData>({ name: "", description: "", price: "", duration: "", category: "" });
   const [imageUrl, setImageUrl] = useState("");
-  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string; tipo?: string }[]>([]);
 
   // ─── Descuento Modal ───
   const [discountService, setDiscountService] = useState<SellerService | null>(null);

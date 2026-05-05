@@ -159,10 +159,11 @@ export function AdminCatalogPage() {
           </table>
           {filtered.length === 0 && (
             <div className="text-center py-20">
-              <p className="text-muted-foreground" style={{ fontSize: 14 }}>No se encontraron productos para moderar.</p>
+              <p className="text-muted-foreground" style={{ fontSize: 14 }}>No se encontraron elementos para moderar.</p>
             </div>
           )}
         </div>
+        )}
       </div>
     </>
   );

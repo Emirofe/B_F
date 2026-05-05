@@ -121,7 +121,7 @@ export async function registerApi(
   password: string,
   rol: "comprador" | "vendedor" = "comprador"
 ): Promise<User> {
-  const id_rol = rol === "vendedor" ? 2 : 1;
+  const id_rol = rol === "vendedor" ? 3 : 2;
   const data = await api<{
     usuario: { id: number; nombre: string; email: string };
   }>("/registrar", {
@@ -172,8 +172,10 @@ export async function logoutApi(): Promise<void> {
  *
  * No requiere sesión.
  */
-export async function getCategoriasApi() {
-  const data = await api<RawCategoria[]>("/comprador/categorias");
+export async function getCategoriasApi(tipo?: "producto" | "servicio" | "ambos") {
+  const query = tipo ? `?tipo=${encodeURIComponent(tipo)}` : "";
+  const endpoint = tipo ? `/api/vendedor/categorias${query}` : "/comprador/categorias";
+  const data = await api<RawCategoria[]>(endpoint);
   return data.map(mapCategoria);
 }
 
@@ -888,6 +890,13 @@ export async function deleteProductoVendedorApi(id: number) {
   return api(`/api/vendedor/productos/${id}`, { method: "DELETE" });
 }
 
+export async function updateProductoCategoriasVendedorApi(id: number, idCategorias: number[]) {
+  return api(`/api/vendedor/productos/${id}/categorias`, {
+    method: "PUT",
+    body: JSON.stringify({ id_categorias: idCategorias }),
+  });
+}
+
 /**
  * Falta por invocar — Falta conectar en vendedor/services.tsx
  *
@@ -968,6 +977,63 @@ export async function deleteServicioVendedorApi(id: number) {
   return api(`/api/vendedor/servicios/${id}`, { method: "DELETE" });
 }
 
+export async function updateServicioCategoriasVendedorApi(id: number, idCategorias: number[]) {
+  return api(`/api/vendedor/servicios/${id}/categorias`, {
+    method: "PUT",
+    body: JSON.stringify({ id_categorias: idCategorias }),
+  });
+}
+
+export type VendedorPedidoItem = {
+  id: number;
+  type: "producto" | "servicio";
+  name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  snapshot?: unknown;
+};
+
+export type VendedorPedido = {
+  id: number;
+  folio: string;
+  date: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string | null;
+  total: number;
+  status: string;
+  address: unknown;
+  items: VendedorPedidoItem[];
+};
+
+export async function getPedidosVendedorRawApi(): Promise<VendedorPedido[]> {
+  const data = await api<{ status: string; pedidos: VendedorPedido[] }>("/api/vendedor/pedidos");
+  return data.pedidos;
+}
+
+export async function updateEstadoPedidoVendedorApi(
+  pedidoId: number,
+  estado: "PENDIENTE" | "EN PREPARACION" | "ENVIADO" | "ENTREGADO" | "CANCELADO"
+) {
+  return api<{ status: string; mensaje: string }>(`/api/vendedor/pedidos/${pedidoId}/estado`, {
+    method: "PUT",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+export async function getEstadisticasVendedorRawApi() {
+  return api<{
+    status: string;
+    estadisticas: {
+      por_estado: Array<{ estado_pedido: string; cantidad: string; total_ventas: string }>;
+      ventas_mensuales: Array<{ mes: string; cantidad_pedidos: string; total_ventas: string }>;
+      total_pedidos: number;
+      total_ventas: number;
+    };
+  }>("/api/vendedor/pedidos/estadisticas");
+}
+
 /**
  * GET /api/vendedor/negocio
  */
@@ -1023,6 +1089,65 @@ export async function createNegocioVendedorApi(datos: {
  * GET /admin/pedidos
  * Lista todos los pedidos del sistema (vista global admin).
  */
+export type AdminCatalogItem = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  precio?: number;
+  precio_base?: number;
+  precio_con_descuento?: number | null;
+  id_descuento?: number | null;
+  stock_total?: number;
+  esta_activo: boolean;
+  estado_catalogo: "Aprobado" | "Rechazado" | string;
+  fecha_registro: string;
+  negocio: string;
+};
+
+export async function getAdminCatalogoProductosApi(): Promise<AdminCatalogItem[]> {
+  const data = await api<{
+    status: string;
+    total: number;
+    productos: AdminCatalogItem[];
+  }>("/admin/catalogo/productos");
+  return data.productos;
+}
+
+export async function getAdminCatalogoServiciosApi(): Promise<AdminCatalogItem[]> {
+  const data = await api<{
+    status: string;
+    total: number;
+    servicios: AdminCatalogItem[];
+  }>("/admin/catalogo/servicios");
+  return data.servicios;
+}
+
+export async function updateAdminEstadoProductoApi(
+  id: number,
+  estado: "APROBADO" | "RECHAZADO"
+) {
+  return api<{ status: string; mensaje: string; data: AdminCatalogItem }>(
+    `/admin/catalogo/productos/${id}/estado`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    }
+  );
+}
+
+export async function updateAdminEstadoServicioApi(
+  id: number,
+  estado: "APROBADO" | "RECHAZADO"
+) {
+  return api<{ status: string; mensaje: string; data: AdminCatalogItem }>(
+    `/admin/catalogo/servicios/${id}/estado`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    }
+  );
+}
+
 export async function getPedidosAdminApi(): Promise<Order[]> {
   const data = await api<{ pedidos: RawPedido[] }>("/admin/pedidos");
   return data.pedidos.map(mapPedidoVendedor);

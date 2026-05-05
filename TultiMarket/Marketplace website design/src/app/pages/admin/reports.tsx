@@ -53,6 +53,18 @@ export function AdminReportsPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const reportStatuses = [
+    "all",
+    "Pendiente",
+    "Revisado",
+    "Advertencia formal",
+    "Suspensión temporal",
+    "Bloqueo permanente",
+    "Desestimado",
+    "Contenido eliminado",
+    "Resuelto",
+  ];
+
   const filtered = statusFilter === "all"
     ? reports
     : reports.filter((r) => r.estado_reporte === statusFilter);

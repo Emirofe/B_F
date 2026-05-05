@@ -10,6 +10,7 @@ import { ProfilePage } from "./pages/profile";
 import { OrderHistoryPage } from "./pages/order-history";
 import { WishlistPage } from "./pages/wishlist";
 import { SellerLayout } from "./pages/seller/seller-layout";
+import { SellerDashboardPage } from "./pages/seller/dashboard";
 import { SellerProductsPage } from "./pages/seller/products";
 import { SellerInventoryPage } from "./pages/seller/inventory";
 import { SellerBundlesPage } from "./pages/seller/bundles";
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
         path: "vendedor",
         Component: SellerLayout,
         children: [
+          { index: true, Component: SellerDashboardPage },
           { path: "productos", Component: SellerProductsPage },
           { path: "inventario", Component: SellerInventoryPage },
           { path: "paquetes", Component: SellerBundlesPage },

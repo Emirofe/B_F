@@ -13,6 +13,7 @@ import {
 } from "../../api/api-client";
 import { useStore } from "../../context/store-context";
 import { toast } from "sonner";
+import { DynamicCategoryField } from "../../components/dynamic-category-field";
 
 interface ProductFormData {
   name: string;
@@ -20,6 +21,7 @@ interface ProductFormData {
   price: string;
   stock: string;
   category: string;
+  sku: string;
 }
 
 interface SellerProduct {
@@ -50,7 +52,7 @@ export function SellerProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState<ProductFormData>({ name: "", description: "", price: "", stock: "", category: "" });
   const [imageUrl, setImageUrl] = useState("");
-  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string; tipo?: string }[]>([]);
 
   // ─── Descuento Modal ───
   const [discountProduct, setDiscountProduct] = useState<SellerProduct | null>(null);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Store, MapPin, Briefcase, Loader2 } from "lucide-react";
+import { Store, MapPin, Briefcase } from "lucide-react";
 import { createNegocioVendedorApi } from "../../api/api-client";
 import { toast } from "sonner"; // Assuming sonner is available based on package.json
 
@@ -8,9 +8,7 @@ interface SetupBusinessProps {
 }
 
 export function SetupBusiness({ onComplete }: SetupBusinessProps) {
-  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [locationError, setLocationError] = useState("");
   const [formData, setFormData] = useState({
     nombre_comercial: "",
     rfc_tax_id: "",
@@ -20,8 +18,8 @@ export function SetupBusiness({ onComplete }: SetupBusinessProps) {
     estado: "",
     codigo_postal: "",
     pais: "México", // default
-    latitud: "",
-    longitud: "",
+    latitud: 19.4326, // dummy default for testing
+    longitud: -99.1332, // dummy default for testing
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,61 +27,8 @@ export function SetupBusiness({ onComplete }: SetupBusinessProps) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Tu navegador no soporta geolocalización");
-      return;
-    }
-
-    setIsFetchingLocation(true);
-    setLocationError("");
-    let done = false;
-
-    // watchPosition sigue intentando hasta obtener la ubicación
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        if (done) return;
-        done = true;
-        navigator.geolocation.clearWatch(watchId);
-        setFormData((prev) => ({
-          ...prev,
-          latitud: position.coords.latitude.toString(),
-          longitud: position.coords.longitude.toString(),
-        }));
-        setLocationError("");
-        toast.success("Ubicación obtenida correctamente");
-        setIsFetchingLocation(false);
-      },
-      () => {
-        // No hacemos nada aquí — watchPosition reintenta automáticamente
-      },
-      { enableHighAccuracy: false, maximumAge: 60000 }
-    );
-
-    // Timeout de seguridad: si en 20s no hay ubicación, cancelamos
-    setTimeout(() => {
-      if (done) return;
-      done = true;
-      navigator.geolocation.clearWatch(watchId);
-      setLocationError("No se pudo obtener la ubicación. Ingresa las coordenadas manualmente.");
-      toast.error("No se pudo obtener la ubicación.");
-      setIsFetchingLocation(false);
-    }, 20000);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (isFetchingLocation) {
-      toast.info("Por favor espera, obteniendo ubicación...");
-      return;
-    }
-
-    if (!formData.latitud || !formData.longitud) {
-      toast.error("Debes obtener la ubicación exacta de tu negocio antes de continuar");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       // API call to create business
@@ -280,70 +225,10 @@ export function SetupBusiness({ onComplete }: SetupBusinessProps) {
               </div>
             </div>
 
-            <hr className="border-gray-200" />
-
-            {/* Sección: Coordenadas */}
-            <div>
-              <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center gap-2 mb-4">
-                <MapPin className="w-5 h-5 text-primary" />
-                Coordenadas GPS (Obligatorio)
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Necesitamos la ubicación exacta de tu negocio para poder mostrarlo a los clientes cercanos en el mapa.
-              </p>
-              
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="flex flex-col sm:flex-row gap-4 items-end justify-between">
-                  <div className="flex-1 w-full">
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">Latitud (Manual/Auto)</label>
-                        <input
-                          type="number"
-                          step="any"
-                          name="latitud"
-                          value={formData.latitud}
-                          onChange={handleChange}
-                          placeholder="Ej. 19.432608"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-primary focus:border-primary outline-none transition-colors bg-white h-[42px]"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">Longitud (Manual/Auto)</label>
-                        <input
-                          type="number"
-                          step="any"
-                          name="longitud"
-                          value={formData.longitud}
-                          onChange={handleChange}
-                          placeholder="Ej. -99.133209"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-primary focus:border-primary outline-none transition-colors bg-white h-[42px]"
-                        />
-                      </div>
-                    </div>
-                    {locationError && <div className="text-sm text-red-600 mt-2">{locationError}</div>}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleGetLocation}
-                    disabled={isFetchingLocation}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 px-6 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-colors h-[42px] w-full sm:w-auto"
-                  >
-                    {isFetchingLocation ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    ) : (
-                      <MapPin className="w-4 h-4 text-primary" />
-                    )}
-                    {isFetchingLocation ? "Obteniendo..." : formData.latitud ? "Actualizar" : "Obtener"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting || !formData.latitud || !formData.longitud}
+                disabled={isSubmitting}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? "Registrando Negocio..." : "Crear mi Tienda"}

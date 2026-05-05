@@ -11,7 +11,7 @@ const createAdminReportesRouter = require("./Admin/reportes");
 const createVendedorRouter = require("./Vendedor/CRUD");
 const createVendedorOrdersRouter = require("./Vendedor/Pedidos");
 const createCompradorRouter = require("./Comprador/productos");
-const createCompradorCuentaRouter = require("./Usuario/cuenta");
+const createCompradorCuentaRouter = require("./Comprador/cuenta");
 const createCompradorCarritoRouter = require("./Comprador/carrito");
 const createCompradorPedidosRouter = require("./Comprador/pedidos");
 const createCompradorReportesRouter = require("./Comprador/reportes");
@@ -22,10 +22,10 @@ const createVendedorDescuentosRouter = require("./Vendedor/Descuentos");
 
 const app = express();
 
-// ── CORS: permite peticiones del frontend en localhost:5173 ──────────────────
+// ── CORS: permite peticiones del frontend en localhost ──────────────────
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: true,
     credentials: true, // necesario para que las cookies de sesión funcionen
   })
 );
@@ -54,7 +54,7 @@ const pool = new Pool({
   user: "postgres",
   host: "localhost",
   database: "senora_chela",
-  password: "hola",
+  password: "1234",
   port: 5432,
 });
 
@@ -77,7 +77,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// (obtenerProductos and obtenerCategorias removed — no longer used by any router)
+// Obtener productos
+async function obtenerProductos() {
+  const result = await pool.query("SELECT * FROM Productos");
+  return result.rows;
+}
+
+// Obtener categorías
+async function obtenerCategorias() {
+  const result = await pool.query(
+    "SELECT DISTINCT categoria FROM Productos"
+  );
+  return result.rows.map((c) => c.categoria);
+}
 
 app.use(
   createLoginRouter({
@@ -88,6 +100,8 @@ app.use(
 app.use(
   createAdminRouter({
     pool,
+    upload,
+    obtenerProductos,
   })
 );
 
@@ -134,8 +148,10 @@ app.use(
 );
 
 app.use(
-  createUsuarioWishlistRouter({
+  createVendedorRouter({
     pool,
+    obtenerProductos,
+    obtenerCategorias,
   })
 );
 

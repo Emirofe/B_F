@@ -5,7 +5,7 @@ import { Footer } from "../components/layout/footer";
 import { ContextualSearch } from "../components/contextual-search";
 import { ProductCard } from "../components/product-card";
 import { SlidersHorizontal, X } from "lucide-react";
-import { type Product } from "../data/mock-data";
+import { products } from "../data/mock-data";
 
 interface ContextAnalysis {
   eventType: string;
@@ -16,7 +16,7 @@ interface ContextAnalysis {
 }
 
 export function SearchPage() {
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [searchResults, setSearchResults] = useState<typeof products>([]);
   const [contextAnalysis, setContextAnalysis] = useState<ContextAnalysis | null>(null);
   const [sortBy, setSortBy] = useState("relevancia");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
@@ -24,7 +24,7 @@ export function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
 
-  const handleResultsFound = (results: Product[], analysis: ContextAnalysis) => {
+  const handleResultsFound = (results: typeof products, analysis: ContextAnalysis) => {
     setSearchResults(results);
     setContextAnalysis(analysis);
     setShowFilters(false);
