@@ -80,7 +80,15 @@ export interface Report {
   reason: string;
   category: string;
   date: string;
-  status: "Pendiente" | "Revisado" | "Resuelto";
+  status:
+    | "Pendiente"
+    | "Revisado"
+    | "Resuelto"
+    | "Desestimado"
+    | "Advertencia formal"
+    | "Suspensión temporal"
+    | "Bloqueo permanente"
+    | "Contenido eliminado";
   description: string;
 }
 
@@ -530,7 +538,7 @@ export const mockUsers: User[] = [
 
 export const mockReports: Report[] = [
   { id: "rep1", reporterId: "u1", reporterName: "Maria Garcia", reportedName: "PinatasMX Store", reason: "Producto defectuoso", category: "Producto", date: "2026-02-28", status: "Pendiente", description: "La pinata llego rota y el vendedor no quiere hacer devolucion." },
-  { id: "rep2", reporterId: "u2", reporterName: "Carlos Rodriguez", reportedName: "Usuario Falso", reason: "Cuenta fraudulenta", category: "Usuario", date: "2026-03-01", status: "Revisado", description: "Este usuario publica resenas falsas en multiples productos." },
+  { id: "rep2", reporterId: "u2", reporterName: "Carlos Rodriguez", reportedName: "Usuario Falso", reason: "Cuenta fraudulenta", category: "Usuario", date: "2026-03-01", status: "Advertencia formal", description: "Este usuario publica resenas falsas en multiples productos." },
   { id: "rep3", reporterId: "u3", reporterName: "Ana Lopez", reportedName: "FiestaMax Store", reason: "Publicidad enganosa", category: "Producto", date: "2026-03-04", status: "Pendiente", description: "Las imagenes del producto no corresponden con lo recibido." },
 ];
 

@@ -16,9 +16,11 @@ import {
   Hash,
   CalendarDays,
   CheckCircle2,
+  Flag,
+  X,
 } from "lucide-react";
 import { type Product } from "../data/mock-data";
-import { getProductoDetalleApi, getServicioDetalleApi, createReviewApi } from "../api/api-client";
+import { getProductoDetalleApi, getServicioDetalleApi, createReviewApi, createReporteCompradorApi } from "../api/api-client";
 import { StarRating } from "../components/star-rating";
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
@@ -43,6 +45,12 @@ export function ProductDetailPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  // States para Reportes
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportMotivo, setReportMotivo] = useState("");
+  const [reportDescripcion, setReportDescripcion] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   
   // States para Servicios
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -147,6 +155,34 @@ export function ProductDetailPage() {
     } else {
       addToWishlist(product);
       toast.success("Agregado a lista de deseos");
+    }
+  };
+
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product || isSubmittingReport) return;
+    if (!reportMotivo) {
+      toast.error("Selecciona un motivo para el reporte");
+      return;
+    }
+    if (!reportDescripcion.trim() || reportDescripcion.trim().length < 10) {
+      toast.error("La descripción debe tener al menos 10 caracteres");
+      return;
+    }
+    setIsSubmittingReport(true);
+    try {
+      const payload: any = { motivo: reportMotivo, descripcion: reportDescripcion.trim() };
+      if (product.type === "servicio") payload.id_servicio = Number(product.id);
+      else payload.id_producto = Number(product.id);
+      await createReporteCompradorApi(payload);
+      toast.success("Reporte enviado exitosamente. Un administrador lo revisará.");
+      setShowReportModal(false);
+      setReportMotivo("");
+      setReportDescripcion("");
+    } catch (error: any) {
+      toast.error(error.message || "Error al enviar reporte");
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -387,7 +423,86 @@ export function ProductDetailPage() {
                 >
                   <Heart size={22} className={inWishlist ? "fill-current" : ""} />
                 </button>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="p-3.5 rounded-xl border-2 border-border text-muted-foreground hover:border-amber-400 hover:text-amber-600 transition-colors"
+                  title="Reportar este producto"
+                >
+                  <Flag size={22} />
+                </button>
               </div>
+
+              {/* ── Modal de Reporte ── */}
+              {showReportModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowReportModal(false)}>
+                  <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="flex items-center gap-2" style={{ fontSize: 18, fontWeight: 600 }}>
+                        <Flag size={20} className="text-amber-600" /> Reportar {isService ? "Servicio" : "Producto"}
+                      </h3>
+                      <button onClick={() => setShowReportModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <p className="text-muted-foreground mb-4" style={{ fontSize: 13 }}>
+                      Tu reporte será revisado por un administrador. Por favor, sé lo más específico posible.
+                    </p>
+                    <form onSubmit={handleSubmitReport} className="space-y-4">
+                      <div>
+                        <label className="block mb-1.5 text-muted-foreground" style={{ fontSize: 13 }}>Motivo del reporte</label>
+                        <select
+                          value={reportMotivo}
+                          onChange={(e) => setReportMotivo(e.target.value)}
+                          className="w-full px-4 py-3 rounded-lg border border-border bg-gray-50 focus:border-primary outline-none"
+                          style={{ fontSize: 14 }}
+                          required
+                        >
+                          <option value="">Selecciona un motivo...</option>
+                          <option value="Producto falso o fraudulento">Producto falso o fraudulento</option>
+                          <option value="Contenido inapropiado">Contenido inapropiado</option>
+                          <option value="Descripción engañosa">Descripción engañosa</option>
+                          <option value="Precio abusivo">Precio abusivo</option>
+                          <option value="Producto prohibido">Producto prohibido</option>
+                          <option value="Sospecha de estafa">Sospecha de estafa</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block mb-1.5 text-muted-foreground" style={{ fontSize: 13 }}>Descripción detallada</label>
+                        <textarea
+                          value={reportDescripcion}
+                          onChange={(e) => setReportDescripcion(e.target.value)}
+                          placeholder="Describe el problema con el mayor detalle posible..."
+                          rows={4}
+                          className="w-full px-4 py-3 rounded-lg border border-border bg-gray-50 focus:border-primary outline-none resize-none"
+                          style={{ fontSize: 14 }}
+                          required
+                          minLength={10}
+                        />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingReport}
+                          className="flex-1 flex items-center justify-center gap-2 bg-amber-600 text-white py-3 rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50"
+                          style={{ fontSize: 14, fontWeight: 600 }}
+                        >
+                          {isSubmittingReport && <Loader2 size={16} className="animate-spin" />}
+                          {isSubmittingReport ? "Enviando..." : "Enviar Reporte"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowReportModal(false)}
+                          className="px-6 py-3 border border-border rounded-xl hover:bg-gray-50"
+                          style={{ fontSize: 14 }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
               {/* Delivery info / Geolocation */}
               {isService ? (

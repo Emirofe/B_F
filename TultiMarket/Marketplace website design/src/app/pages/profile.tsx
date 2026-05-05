@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   User, MapPin, Plus, Trash2, LogOut, Package, Heart,
-  CreditCard, ShieldCheck, AlertTriangle, Loader2
+  CreditCard, ShieldCheck, AlertTriangle, Loader2, Flag
 } from "lucide-react";
 import { useStore } from "../context/store-context";
 import { Navbar } from "../components/layout/navbar";
@@ -14,6 +14,8 @@ import {
   eliminarCuentaApi,
   addMetodoPagoApi,
   deleteMetodoPagoApi,
+  getReportesCompradorApi,
+  type RawReporteComprador,
 } from "../api/api-client";
 import type { PaymentMethod } from "../data/mock-data";
 
@@ -47,9 +49,13 @@ export function ProfilePage() {
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   // ─── Tabs y Seguridad ───────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"info" | "addresses" | "payments" | "security">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "addresses" | "payments" | "security" | "reports">("info");
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // ─── Mis Reportes ─────────────────────────────────────────────────────
+  const [myReports, setMyReports] = useState<RawReporteComprador[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
 
   // ─── Eliminar Cuenta ───────────────────────────────────────────
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -69,6 +75,16 @@ export function ProfilePage() {
     reloadAddresses();
     reloadPaymentMethods();
   }, []);
+
+  // Cargar reportes cuando se activa la pestaña
+  useEffect(() => {
+    if (activeTab !== "reports") return;
+    setLoadingReports(true);
+    getReportesCompradorApi()
+      .then((data) => setMyReports(data))
+      .catch(() => setMyReports([]))
+      .finally(() => setLoadingReports(false));
+  }, [activeTab]);
 
   // ────────────────────────────────────────────────────────────────
   // Si no hay sesión, redirigir a login
@@ -329,6 +345,7 @@ export function ProfilePage() {
             { id: "info", label: "Informacion", icon: <User size={18} /> },
             { id: "addresses", label: "Direcciones", icon: <MapPin size={18} /> },
             { id: "payments", label: "Métodos de Pago", icon: <CreditCard size={18} /> },
+            { id: "reports", label: "Mis Reportes", icon: <Flag size={18} /> },
             { id: "security", label: "Seguridad", icon: <ShieldCheck size={18} /> },
           ].map((tab) => (
             <button
@@ -655,6 +672,65 @@ export function ProfilePage() {
                   ))
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════ */}
+          {/*  TAB: MIS REPORTES                                       */}
+          {/* ══════════════════════════════════════════════════════════ */}
+          {activeTab === "reports" && (
+            <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="flex items-center gap-2 mb-6" style={{ fontSize: 18, fontWeight: 600 }}>
+                <Flag size={20} /> Mis Reportes Enviados
+              </h3>
+              {loadingReports ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={28} className="animate-spin text-primary" />
+                  <span className="ml-3 text-muted-foreground">Cargando reportes...</span>
+                </div>
+              ) : myReports.length === 0 ? (
+                <div className="text-center py-12">
+                  <Flag size={40} className="mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground" style={{ fontSize: 14 }}>No has enviado ningún reporte aún.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myReports.map((r) => {
+                    const statusColor =
+                      r.estado_reporte === "Pendiente" ? "bg-amber-100 text-amber-700" :
+                      r.estado_reporte === "Resuelto" ? "bg-green-100 text-green-700" :
+                      r.estado_reporte === "Desestimado" ? "bg-slate-100 text-slate-700" :
+                      r.estado_reporte === "Advertencia formal" ? "bg-orange-100 text-orange-700" :
+                      "bg-blue-100 text-blue-700";
+                    return (
+                      <div key={r.id} className="border border-border rounded-xl p-4 hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.tipo_objetivo === "producto" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                {r.tipo_objetivo}
+                              </span>
+                              <span style={{ fontSize: 14, fontWeight: 600 }}>{r.nombre_objetivo}</span>
+                            </div>
+                            <p className="text-muted-foreground" style={{ fontSize: 13 }}>
+                              <span style={{ fontWeight: 500 }}>Motivo:</span> {r.motivo}
+                            </p>
+                            <p className="text-muted-foreground truncate" style={{ fontSize: 12 }}>{r.descripcion}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+                              {r.estado_reporte}
+                            </span>
+                            <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>
+                              {r.fecha_creacion ? new Date(r.fecha_creacion).toLocaleDateString("es-MX") : ""}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -32,8 +32,10 @@ import {
 
 import type { Product, User, Address, PaymentMethod, Order } from "../data/mock-data";
 
-// URL base del backend
-const BASE_URL = "http://localhost:3000";
+// URL base del backend. Usa el mismo hostname del frontend para que la cookie
+// de sesion no se pierda entre localhost y 127.0.0.1.
+const API_HOST = typeof window !== "undefined" ? window.location.hostname : "localhost";
+const BASE_URL = `http://${API_HOST}:3000`;
 
 // ─── Helper: fetch con credentials incluidas ─────────────────────────────────
 async function api<T>(
@@ -111,7 +113,7 @@ export async function loginApi(
  * NOTA: El backend NO retorna "rol" ni "telefono" en el registro,
  * solo id/nombre/email. El mapper debe manejar campos faltantes.
  *
- * id_rol: 1=admin, 2=comprador, 3=vendedor
+ * id_rol: 1=cliente, 2=vendedor, 3=admin  (ver LLENADO.sql)
  */
 export async function registerApi(
   nombre: string,
@@ -697,33 +699,77 @@ export async function getPedidosCompradorApi(): Promise<Order[]> {
   }));
 }
 
+export interface ResumenCompras {
+  total_pedidos: number;
+  total_gastado: number;
+  promedio_compra: number;
+  pedidos_entregados: number;
+  pedidos_cancelados: number;
+  productos_mas_comprados: Array<{ nombre: string; veces_comprado: number; total_unidades: number }>;
+  compras_por_mes: Array<{ mes: string; cantidad_pedidos: number; total: number }>;
+}
+
+/**
+ * GET /comprador/mi-resumen-compras
+ * Devuelve estadísticas de compras del usuario activo.
+ */
+export async function getResumenComprasApi(): Promise<ResumenCompras> {
+  const data = await api<{ status: string; resumen: ResumenCompras }>("/comprador/mi-resumen-compras");
+  return data.resumen;
+}
+
+/**
+ * PUT /comprador/mis-pedidos/:pedidoId/cancelar
+ * Cancela un pedido que está en estado PENDIENTE o EN PREPARACION, devolviendo el stock.
+ */
+export async function cancelarPedidoApi(pedidoId: string | number): Promise<{ status: string; mensaje: string }> {
+  return api(`/comprador/mis-pedidos/${pedidoId}/cancelar`, {
+    method: "PUT",
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PANEL VENDEDOR (requiere sesión de vendedor)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Falta por invocar — Falta conectar en vendedor/pedidos.tsx
- *
  * GET /api/vendedor/pedidos
  * Response: { status: "success", pedidos: [...] }
- *
- * El backend resuelve el id_negocio internamente desde la sesión.
- * Cada pedido incluye items con: id, type, name, quantity, price, subtotal, snapshot.
+ * Versión mapeada → devuelve Order[] (para reuso en otros componentes).
  */
 export async function getPedidosVendedorApi(): Promise<Order[]> {
   const data = await api<{ pedidos: RawPedido[] }>("/api/vendedor/pedidos");
   return data.pedidos.map(mapPedidoVendedor);
 }
 
+/** Interfaz raw de un pedido del vendedor (sin mapear, con todos los campos del backend) */
+export interface RawVendorOrder {
+  id: number;
+  folio: string;
+  date: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string | null;
+  total: number;
+  status: string;
+  address: any;
+  items: Array<{ id: number; type: string; name: string; quantity: number; price: number; subtotal: number }>;
+}
+
 /**
- * Falta por invocar — Falta conectar en vendedor/pedidos.tsx
- *
+ * GET /api/vendedor/pedidos — versión RAW
+ * Devuelve los datos tal cual del backend, sin mapear a Order[].
+ * Usado por seller/orders.tsx que necesita campos como buyerEmail.
+ */
+export async function getPedidosVendedorRawApi(): Promise<RawVendorOrder[]> {
+  const data = await api<{ pedidos: RawVendorOrder[] }>("/api/vendedor/pedidos");
+  return data.pedidos || [];
+}
+
+/**
  * PUT /api/vendedor/pedidos/:pedidoId/estado
  * Body: { estado: "PENDIENTE" | "EN PREPARACION" | "ENVIADO" | "ENTREGADO" | "CANCELADO" }
- * Response: { status: "success", mensaje: "..." }
- *
- * NOTA: El estado debe estar en MAYÚSCULAS. El backend lo normaliza con .toUpperCase()
- * pero lo validamos de todos modos.
+ * Usado por seller/orders.tsx para cambiar el estado de un pedido.
  */
 export async function updateEstadoPedidoApi(
   pedidoId: number,
@@ -736,18 +782,9 @@ export async function updateEstadoPedidoApi(
 }
 
 /**
- * Falta por invocar — Falta conectar en vendedor/sales.tsx (estadísticas de ventas)
- *
  * GET /api/vendedor/pedidos/estadisticas
- * Response: {
- *   status: "success",
- *   estadisticas: {
- *     por_estado: [{ estado_pedido, cantidad, total_ventas }],
- *     ventas_mensuales: [{ mes, cantidad_pedidos, total_ventas }],
- *     total_pedidos: number,
- *     total_ventas: number
- *   }
- * }
+ * Devuelve resumen de ventas del vendedor autenticado.
+ * Usado por seller/sales.tsx para KPIs y gráficas.
  */
 export async function getEstadisticasVendedorApi() {
   return api<{
@@ -992,6 +1029,234 @@ export async function getPedidosAdminApi(): Promise<Order[]> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: CATÁLOGO (moderación de productos y servicios)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Producto crudo que devuelve GET /admin/catalogo/productos */
+export interface RawCatalogoProducto {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  precio: number;
+  precio_con_descuento: number;
+  id_descuento: number | null;
+  stock_total: number;
+  esta_activo: boolean;
+  estado_catalogo: string;
+  fecha_registro: string;
+  negocio: string;
+}
+
+/** Servicio crudo que devuelve GET /admin/catalogo/servicios */
+export interface RawCatalogoServicio {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  precio_base: number;
+  precio_con_descuento: number;
+  id_descuento: number | null;
+  esta_activo: boolean;
+  estado_catalogo: string;
+  fecha_registro: string;
+  negocio: string;
+}
+
+/** GET /admin/catalogo/productos */
+export async function getCatalogoProductosAdminApi() {
+  return api<{
+    status: string;
+    total: number;
+    productos: RawCatalogoProducto[];
+  }>("/admin/catalogo/productos");
+}
+
+/** GET /admin/catalogo/servicios */
+export async function getCatalogoServiciosAdminApi() {
+  return api<{
+    status: string;
+    total: number;
+    servicios: RawCatalogoServicio[];
+  }>("/admin/catalogo/servicios");
+}
+
+/** PATCH /admin/catalogo/productos/:id/estado  —  body: { estado: "APROBADO"|"RECHAZADO" } */
+export async function updateEstadoCatalogoProductoApi(id: number, estado: "APROBADO" | "RECHAZADO") {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/catalogo/productos/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+/** PATCH /admin/catalogo/servicios/:id/estado  —  body: { estado: "APROBADO"|"RECHAZADO" } */
+export async function updateEstadoCatalogoServicioApi(id: number, estado: "APROBADO" | "RECHAZADO") {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/catalogo/servicios/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: REPORTES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mapper: traduce el estado de la BD (UPPERCASE) al texto legible del frontend.
+ * Ej: "ADVERTENCIA_FORMAL" → "Advertencia formal"
+ */
+const ESTADO_REPORTE_MAP: Record<string, string> = {
+  PENDIENTE: "Pendiente",
+  REVISADO: "Revisado",
+  RESUELTO: "Resuelto",
+  ADVERTENCIA_FORMAL: "Advertencia formal",
+  SUSPENSION_TEMPORAL: "Suspensión temporal",
+  BLOQUEO_PERMANENTE: "Bloqueo permanente",
+  DESESTIMADO: "Desestimado",
+  CONTENIDO_ELIMINADO: "Contenido eliminado",
+};
+
+/** Convierte un estado UPPERCASE de la BD a texto legible para el frontend */
+export function mapEstadoReporte(estadoBd: string): string {
+  return ESTADO_REPORTE_MAP[estadoBd] ?? estadoBd;
+}
+
+/** Convierte texto legible del frontend al formato UPPERCASE de la BD */
+const ESTADO_REPORTE_REVERSE: Record<string, string> = Object.fromEntries(
+  Object.entries(ESTADO_REPORTE_MAP).map(([k, v]) => [v, k])
+);
+export function mapEstadoReporteToBack(estadoFront: string): string {
+  return ESTADO_REPORTE_REVERSE[estadoFront] ?? estadoFront.toUpperCase().replace(/ /g, "_");
+}
+
+/** Reporte crudo del backend */
+export interface RawReporteAdmin {
+  id: number;
+  id_usuario: number;
+  id_negocio: number;
+  negocio: string;
+  id_producto: number | null;
+  id_servicio: number | null;
+  tipo_objetivo: "producto" | "servicio";
+  id_objetivo: number;
+  nombre_objetivo: string;
+  motivo: string;
+  descripcion: string;
+  estado_reporte: string;
+  fecha_creacion: string;
+  fecha_resolucion: string | null;
+}
+
+/** GET /admin/reportes — Lista todos los reportes */
+export async function getReportesAdminApi() {
+  const data = await api<{
+    status: string;
+    total: number;
+    reportes: RawReporteAdmin[];
+  }>("/admin/reportes");
+  return data.reportes.map((r) => ({ ...r, estado_reporte: mapEstadoReporte(r.estado_reporte) }));
+}
+
+/** PATCH /admin/reportes/:id/estado — Cambio libre de estado */
+export async function updateEstadoReporteApi(id: number, estado: string) {
+  return api<{ status: string; mensaje: string; reporte: any }>(`/admin/reportes/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado: mapEstadoReporteToBack(estado) }),
+  });
+}
+
+/** POST /admin/reportes/:id/desestimar */
+export async function desestimarReporteApi(id: number, razon: string) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}/desestimar`, {
+    method: "POST",
+    body: JSON.stringify({ razon }),
+  });
+}
+
+/** POST /admin/reportes/:id/advertencia */
+export async function advertenciaReporteApi(id: number) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}/advertencia`, {
+    method: "POST",
+  });
+}
+
+/** POST /admin/reportes/:id/suspension */
+export async function suspensionReporteApi(id: number, dias: number) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}/suspension`, {
+    method: "POST",
+    body: JSON.stringify({ dias }),
+  });
+}
+
+/** POST /admin/reportes/:id/bloqueo */
+export async function bloqueoReporteApi(id: number, razon: string) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}/bloqueo`, {
+    method: "POST",
+    body: JSON.stringify({ razon }),
+  });
+}
+
+/** POST /admin/reportes/:id/eliminar-contenido */
+export async function eliminarContenidoReporteApi(id: number, razon: string) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}/eliminar-contenido`, {
+    method: "POST",
+    body: JSON.stringify({ razon }),
+  });
+}
+
+/** DELETE /admin/reportes/:id */
+export async function deleteReporteApi(id: number) {
+  return api<{ status: string; mensaje: string }>(`/admin/reportes/${id}`, { method: "DELETE" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: USUARIOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Usuario crudo del backend admin */
+export interface RawAdminUsuario {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+  avatar_url: string | null;
+  id_rol: number;
+  rol: string;
+  activo: boolean;
+  fecha_registro: string;
+  fecha_eliminacion: string | null;
+}
+
+/** GET /admin/usuarios */
+export async function getUsuariosAdminApi(filtros?: { q?: string; rol?: string; activo?: string }) {
+  const params = new URLSearchParams();
+  if (filtros?.q) params.set("q", filtros.q);
+  if (filtros?.rol) params.set("rol", filtros.rol);
+  if (filtros?.activo !== undefined) params.set("activo", filtros.activo);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return api<{
+    status: string;
+    total: number;
+    usuarios: RawAdminUsuario[];
+  }>(`/admin/usuarios${query}`);
+}
+
+/** PATCH /admin/usuarios/:id/estado — Activar / Desactivar */
+export async function updateEstadoUsuarioApi(id: number, estado: "ACTIVO" | "INACTIVO") {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/usuarios/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+/** PATCH /admin/usuarios/:id/rol — Reasignar rol */
+export async function updateRolUsuarioApi(id: number, idRol: number) {
+  return api<{ status: string; mensaje: string; data: any }>(`/admin/usuarios/${id}/rol`, {
+    method: "PATCH",
+    body: JSON.stringify({ id_rol: idRol }),
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: CATEGORÍAS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1160,6 +1425,130 @@ export async function addToWishlistApi(
 export async function removeFromWishlistApi(idItem: number) {
   return api<{ mensaje: string }>(
     `/comprador/wishlist/items/${idItem}`,
+    { method: "DELETE" }
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPRADOR: REPORTES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Reporte del comprador (respuesta del backend) */
+export interface RawReporteComprador {
+  id: number;
+  id_usuario: number;
+  id_negocio: number;
+  negocio: string;
+  motivo: string;
+  descripcion: string;
+  estado_reporte: string;
+  fecha_creacion: string;
+  fecha_resolucion: string | null;
+  tipo_objetivo: "producto" | "servicio";
+  id_objetivo: number;
+  nombre_objetivo: string;
+}
+
+/**
+ * POST /comprador/reportes
+ * Crea un reporte nuevo. Envía solo id_producto O id_servicio, no ambos.
+ */
+export async function createReporteCompradorApi(datos: {
+  id_producto?: number;
+  id_servicio?: number;
+  motivo: string;
+  descripcion: string;
+}) {
+  return api<{ mensaje: string; reporte: RawReporteComprador }>("/comprador/reportes", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+/**
+ * GET /comprador/reportes
+ * Lista todos los reportes creados por el comprador autenticado.
+ */
+export async function getReportesCompradorApi() {
+  const data = await api<RawReporteComprador[]>("/comprador/reportes");
+  return data.map((r) => ({ ...r, estado_reporte: mapEstadoReporte(r.estado_reporte) }));
+}
+
+/**
+ * GET /comprador/reportes/:id
+ * Detalle de un reporte específico del comprador autenticado.
+ */
+export async function getReporteDetalleCompradorApi(idReporte: number) {
+  const data = await api<RawReporteComprador>(`/comprador/reportes/${idReporte}`);
+  return { ...data, estado_reporte: mapEstadoReporte(data.estado_reporte) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDEDOR: DESCUENTOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Datos para crear o editar un descuento */
+export interface DescuentoPayload {
+  codigo_cupon?: string | null;
+  porcentaje_descuento: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+}
+
+/** Descuento devuelto por el backend */
+export interface RawDescuento {
+  id: number;
+  codigo_cupon: string | null;
+  porcentaje_descuento: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado_descuento?: string;
+}
+
+/** POST /api/vendedor/productos/:id/descuentos — Crear y asignar descuento a un producto */
+export async function createDescuentoProductoApi(idProducto: number, datos: DescuentoPayload) {
+  return api<{ mensaje: string; producto: any; descuento: RawDescuento }>(
+    `/api/vendedor/productos/${idProducto}/descuentos`,
+    { method: "POST", body: JSON.stringify(datos) }
+  );
+}
+
+/** POST /api/vendedor/servicios/:id/descuentos — Crear y asignar descuento a un servicio */
+export async function createDescuentoServicioApi(idServicio: number, datos: DescuentoPayload) {
+  return api<{ mensaje: string; servicio: any; descuento: RawDescuento }>(
+    `/api/vendedor/servicios/${idServicio}/descuentos`,
+    { method: "POST", body: JSON.stringify(datos) }
+  );
+}
+
+/** PUT /api/vendedor/productos/:id/descuentos/:id_desc — Actualizar descuento de producto */
+export async function updateDescuentoProductoApi(idProducto: number, idDescuento: number, datos: Partial<DescuentoPayload>) {
+  return api<{ mensaje: string; descuento: RawDescuento }>(
+    `/api/vendedor/productos/${idProducto}/descuentos/${idDescuento}`,
+    { method: "PUT", body: JSON.stringify(datos) }
+  );
+}
+
+/** PUT /api/vendedor/servicios/:id/descuentos/:id_desc — Actualizar descuento de servicio */
+export async function updateDescuentoServicioApi(idServicio: number, idDescuento: number, datos: Partial<DescuentoPayload>) {
+  return api<{ mensaje: string; descuento: RawDescuento }>(
+    `/api/vendedor/servicios/${idServicio}/descuentos/${idDescuento}`,
+    { method: "PUT", body: JSON.stringify(datos) }
+  );
+}
+
+/** DELETE /api/vendedor/productos/:id/descuentos/:id_desc — Quitar descuento de un producto */
+export async function removeDescuentoProductoApi(idProducto: number, idDescuento: number) {
+  return api<{ mensaje: string; producto_id: number; descuento_removido: number }>(
+    `/api/vendedor/productos/${idProducto}/descuentos/${idDescuento}`,
+    { method: "DELETE" }
+  );
+}
+
+/** DELETE /api/vendedor/servicios/:id/descuentos/:id_desc — Quitar descuento de un servicio */
+export async function removeDescuentoServicioApi(idServicio: number, idDescuento: number) {
+  return api<{ mensaje: string; servicio_id: number; descuento_removido: number }>(
+    `/api/vendedor/servicios/${idServicio}/descuentos/${idDescuento}`,
     { method: "DELETE" }
   );
 }

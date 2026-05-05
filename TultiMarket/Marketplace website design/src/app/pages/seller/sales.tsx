@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { DollarSign, ShoppingBag, TrendingUp, Loader2 } from "lucide-react";
+import { getEstadisticasVendedorApi } from "../../api/api-client";
 
 interface SalesData {
   mes: string;
@@ -23,27 +24,23 @@ export function SellerSalesPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:3000/api/vendedor/pedidos/estadisticas", { credentials: "include" })
-      .then((res) => res.json())
+    getEstadisticasVendedorApi()
       .then((data) => {
-        if (data.status === "success") {
-          const stats = data.estadisticas;
-          const salesData: SalesData[] = (stats.ventas_mensuales || []).map((row: any) => ({
-            mes: monthNames[new Date(row.mes).getMonth()],
-            ordenes: parseInt(row.cantidad_pedidos),
-            ingresos: parseFloat(row.total_ventas || 0),
-          })).reverse();
+        const stats = data.estadisticas;
+        const salesData: SalesData[] = (stats.ventas_mensuales || []).map((row: any) => ({
+          mes: monthNames[new Date(row.mes).getMonth()],
+          ordenes: parseInt(row.cantidad_pedidos),
+          ingresos: parseFloat(row.total_ventas || 0),
+        })).reverse();
 
-          setSalesStats({
-            totalOrders: stats.total_pedidos || 0,
-            totalRevenue: stats.total_ventas || 0,
-            salesData,
-            porEstado: stats.por_estado || [],
-          });
-        }
+        setSalesStats({
+          totalOrders: stats.total_pedidos || 0,
+          totalRevenue: stats.total_ventas || 0,
+          salesData,
+          porEstado: stats.por_estado || [],
+        });
       })
       .catch(() => {
-        // Si falla, mostramos datos vacíos
         setSalesStats({
           totalOrders: 0,
           totalRevenue: 0,
